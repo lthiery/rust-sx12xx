@@ -1,0 +1,8 @@
+target/
+**/*.rs.bk
+*.lock
+*.hex
+*.bin
+
+build-script-target
+longfi-sys/longfi-device/build
