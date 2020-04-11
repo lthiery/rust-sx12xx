@@ -1,4 +1,4 @@
-#[cfg(workaround_build)]
+//#[cfg(workaround_build)]
 fn main() {
     use std::env;
     use std::path::PathBuf;
@@ -42,7 +42,7 @@ fn main() {
         .expect("Couldn't write bindings!");
 }
 
-#[cfg(not(workaround_build))]
-fn main() {
-   cargo_5730::run_build_script();
-}
+// #[cfg(not(workaround_build))]
+// fn main() {
+//    cargo_5730::run_build_script();
+// }
