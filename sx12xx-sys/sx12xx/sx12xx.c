@@ -2,17 +2,7 @@
 #include <string.h>
 #include "sx12xx.h"
 
-typedef struct Internal_t
-{
-    void (*dio_irq_handles[NUM_IRQ_HANDLES])();
-    RadioEvents_t   radio_events;
-    Sx126xxState_t cur_event;
-    uint16_t rx_len;
-    int16_t rssi;
-    int8_t snr;
-} Internal_t;
-
-static Internal_t internal;
+static Sx12xx_t * sx12xx_handle;
 
 void OnTxDone(void);
 
@@ -25,51 +15,55 @@ void OnRxTimeout(void);
 void OnRxError(void);
 
 void
-sx126xx_init(Radio_t * radio, BoardBindings_t * bindings_input)
+sx12xx_init(Sx12xx_t * sx12xx, Radio_t radio, BoardBindings_t bindings)
 {
-    // store pointer to internal context for callback definitions
-    bindings = bindings_input;
+    sx12xx->radio = radio;
+    sx12xx->bindings = bindings;
 
     // configure sx12xx radio events with local functions
-    internal.radio_events.TxDone    = OnTxDone;
-    internal.radio_events.RxDone    = OnRxDone;
-    internal.radio_events.TxTimeout = OnTxTimeout;
-    internal.radio_events.RxTimeout = OnRxTimeout;
-    internal.radio_events.RxError   = OnRxError;
+    sx12xx_handle->radio_events.TxDone    = OnTxDone;
+    sx12xx_handle->radio_events.RxDone    = OnRxDone;
+    sx12xx_handle->radio_events.TxTimeout = OnTxTimeout;
+    sx12xx_handle->radio_events.RxTimeout = OnRxTimeout;
+    sx12xx_handle->radio_events.RxError   = OnRxError;
 
     // this function calls TimerInits and radio->IoIrqInit, which are
     // implemented here
-    radio->Init(&internal.radio_events);
+    radio.Init(&sx12xx->radio_events);
 
     // sleep the radio and wait for a send or receive call
-    radio->Sleep();
+    radio.Sleep();
+
+    sx12xx_handle = sx12xx;
 }
 
-Sx126xxState_t
-sx126xx_handle_event(Radio_t * handle, Sx126xxEvent_t event)
+Sx12xxState_t
+sx12xx_handle_event(Sx12xx_t * sx12xx, Sx12xxEvent_t event)
 {
-    internal.cur_event = Sx126xxState_Busy;
+    // initialize state here but the callbacks from
+    // the Semtech library (define below) may alter it
+    sx12xx->state = Sx12xxState_Busy;
 
     switch (event)
     {
     case Sx12xxEvent_DIO0:
-        (*(internal.dio_irq_handles[0]))();
+        (*(sx12xx_handle->dio_irq_handles[0]))();
         break;
     case Sx12xxEvent_DIO1:
         // SX126x library only has the one handle, so fire it even fore DIO1
-        (*(internal.dio_irq_handles[0]))();
+        (*(sx12xx_handle->dio_irq_handles[0]))();
         break;
     case Sx12xxEvent_DIO2:
-        (*internal.dio_irq_handles[2])();
+        (*(sx12xx_handle->dio_irq_handles[2]))();
         break;
     case Sx12xxEvent_DIO3:
-        (*internal.dio_irq_handles[3])();
+        (*(sx12xx_handle->dio_irq_handles[3]))();
         break;
     case Sx12xxEvent_DIO4:
-        (*internal.dio_irq_handles[4])();
+        (*(sx12xx_handle->dio_irq_handles[4]))();
         break;
     case Sx12xxEvent_DIO5:
-        (*internal.dio_irq_handles[5])();
+        (*(sx12xx_handle->dio_irq_handles[5]))();
         break;
     case Sx12xxEvent_Timer1:
         // TODO: needs to dispatch the callback stashed from TimerInit
@@ -84,7 +78,7 @@ sx126xx_handle_event(Radio_t * handle, Sx126xxEvent_t event)
         break;
     }
 
-    return internal.cur_event;
+    return sx12xx->state;
 }
 
 // each sx12xx board invokes this during initialization
@@ -93,39 +87,39 @@ IoIrqInit(IrqHandler * irq_handlers[NUM_IRQ_HANDLES])
 {
     for (uint32_t i = 0; i < NUM_IRQ_HANDLES; i++)
     {
-        internal.dio_irq_handles[i] = irq_handlers[i];
+        sx12xx_handle->dio_irq_handles[i] = irq_handlers[i];
     }
 }
 
 void
 OnTxDone(void)
 {
-    internal.cur_event = Sx126xxState_TxDone;
+    sx12xx_handle->state = Sx12xxState_TxDone;
 }
 
 void
 OnRxDone(uint8_t * payload, uint16_t size, int16_t rssi, int8_t snr)
 {
-    internal.cur_event = Sx126xxState_RxDone;
-    internal.rx_len    = size;
-    internal.rssi = rssi;
-    internal.snr  = snr;
+    sx12xx_handle->state = Sx12xxState_RxDone;
+    sx12xx_handle->rx_len    = size;
+    sx12xx_handle->rssi = rssi;
+    sx12xx_handle->snr  = snr;
 }
 
 void
 OnTxTimeout(void)
 {
-    internal.cur_event = Sx126xxState_TxTimeout;
+    sx12xx_handle->state = Sx12xxState_TxTimeout;
 }
 
 void
 OnRxTimeout(void)
 {
-    internal.cur_event = Sx126xxState_RxTimeout;
+    sx12xx_handle->state = Sx12xxState_RxTimeout;
 }
 
 void
 OnRxError(void)
 {
-    internal.cur_event = Sx126xxState_RxError;
+    sx12xx_handle->state = Sx12xxState_RxError;
 }
