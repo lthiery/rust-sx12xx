@@ -43,7 +43,6 @@ extern "C"
         uint16_t rx_len;
         int16_t rssi;
         int8_t snr;
-        Radio_t radio;
         BoardBindings_t bindings;
     } Sx12xx_t;
 
@@ -51,7 +50,7 @@ extern "C"
      * \brief  Run time initialization of library
      *
      */
-    void sx12xx_init(Sx12xx_t *, Radio_t, BoardBindings_t);
+    void sx12xx_init(Sx12xx_t *, Radio_t *, BoardBindings_t);
 
     /*!
      * \brief To be used by client in a low-priorty loop, feeding events into the library

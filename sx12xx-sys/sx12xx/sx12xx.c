@@ -15,9 +15,8 @@ void OnRxTimeout(void);
 void OnRxError(void);
 
 void
-sx12xx_init(Sx12xx_t * sx12xx, Radio_t radio, BoardBindings_t bindings)
+sx12xx_init(Sx12xx_t * sx12xx, Radio_t * radio, BoardBindings_t bindings)
 {
-    sx12xx->radio = radio;
     sx12xx->bindings = bindings;
 
     // configure sx12xx radio events with local functions
@@ -29,10 +28,10 @@ sx12xx_init(Sx12xx_t * sx12xx, Radio_t radio, BoardBindings_t bindings)
 
     // this function calls TimerInits and radio->IoIrqInit, which are
     // implemented here
-    radio.Init(&sx12xx->radio_events);
+    radio->Init(&sx12xx->radio_events);
 
     // sleep the radio and wait for a send or receive call
-    radio.Sleep();
+    radio->Sleep();
 }
 
 Sx12xxState_t
