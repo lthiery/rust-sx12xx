@@ -22,7 +22,7 @@ extern "C"
         Sx12xxEvent_DIO5,   // unimplemented
         Sx12xxEvent_Timer1, // unimplemented
         Sx12xxEvent_Timer2, // unimplemented
-        Sx12xxEvent_Timer3  // unimplemented
+        Sx12xxEvent_Timer3 = 0xFFFFFFFF // force 32-bit value,
     } Sx12xxEvent_t;
 
     typedef enum Sx126xxState
@@ -32,7 +32,7 @@ extern "C"
         Sx12xxState_RxDone,
         Sx12xxState_TxTimeout,
         Sx12xxState_RxTimeout,
-        Sx12xxState_RxError,
+        Sx12xxState_RxError = 0xFFFFFFFF // force 32-bit value,
     } Sx12xxState_t;
 
     typedef struct Sx12xx
