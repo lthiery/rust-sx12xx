@@ -33,13 +33,12 @@ sx12xx_init(Sx12xx_t * sx12xx, Radio_t radio, BoardBindings_t bindings)
 
     // sleep the radio and wait for a send or receive call
     radio.Sleep();
-
-    sx12xx_handle = sx12xx;
 }
 
 Sx12xxState_t
 sx12xx_handle_event(Sx12xx_t * sx12xx, Sx12xxEvent_t event)
 {
+    sx12xx_handle = sx12xx;
     // initialize state here but the callbacks from
     // the Semtech library (define below) may alter it
     sx12xx->state = Sx12xxState_Busy;
