@@ -46,6 +46,7 @@ extern "C"
         BoardBindings_t bindings;
     } Sx12xx_t;
 
+    Sx12xx_t sx12xx_new_handle(void);
     /*!
      * \brief  Run time initialization of library
      *

@@ -33,9 +33,18 @@ fn main() {
        .rustfmt_bindings(true)
        .rustified_enum("Sx12xxEvent_t")
        .rustified_enum("Sx12xxState_t")
+       .rustified_enum("Sx12xxState_t")
+       .rustified_enum("AntPinsMode_t")
+       .whitelist_type("Radio_t")
+       .whitelist_type("RadioModems_t")
+       .whitelist_type("Sx12xxEvent_t")
+       .whitelist_type("Sx12xxState_t")
+       .whitelist_type("AntPinsMode_t")
+       .whitelist_type("Sx12xx_t")
        .whitelist_function("SX1276RadioNew")
        .whitelist_function("SX126xRadioNew")
        .whitelist_function("sx12xx_init")
+       .whitelist_function("sx12xx_new_handle")
        .whitelist_function("sx12xx_handle_event")
        .derive_copy(false)
        .derive_debug(false)
@@ -53,3 +62,4 @@ fn main() {
 // fn main() {
 //    cargo_5730::run_build_script();
 // }
+
