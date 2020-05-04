@@ -24,6 +24,7 @@ sx12xx_new_handle()
 void 
 sx12xx_init(Sx12xx_t * sx12xx, Radio_t * radio, BoardBindings_t bindings)
 {
+    sx12xx_handle = sx12xx;
     sx12xx->bindings = bindings;
 
     // configure sx12xx radio events with local functions
@@ -33,12 +34,12 @@ sx12xx_init(Sx12xx_t * sx12xx, Radio_t * radio, BoardBindings_t bindings)
     sx12xx_handle->radio_events.RxTimeout = OnRxTimeout;
     sx12xx_handle->radio_events.RxError   = OnRxError;
 
-    // // this function calls TimerInits and radio->IoIrqInit, which are
-    // // implemented here
-    // radio->Init(&sx12xx->radio_events);
+    // this function calls TimerInits and radio->IoIrqInit, which are
+    // implemented here
+    radio->Init(&sx12xx->radio_events);
 
-    // // sleep the radio and wait for a send or receive call
-    // radio->Sleep();
+    // sleep the radio and wait for a send or receive call
+    radio->Sleep();
 }
 
 Sx12xxState_t
