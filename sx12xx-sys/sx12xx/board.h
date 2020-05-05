@@ -112,8 +112,6 @@ extern "C"
 
     } BoardBindings_t;
 
-    extern BoardBindings_t * bindings;
-
 #ifdef __cplusplus
 }
 #endif

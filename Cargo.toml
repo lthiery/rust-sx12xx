@@ -15,6 +15,7 @@ description = "Rust Wrapper SX12xx"
 [dependencies]
 sx12xx-sys = {path = "./sx12xx-sys", version = "0.1.0"}
 libm = "0.1.4"
+heapless = "0.5.4"
 
 [profile.dev]
 opt-level = "s"

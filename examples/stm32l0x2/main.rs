@@ -8,13 +8,13 @@ extern crate nb;
 extern crate panic_halt;
 
 use core::fmt::Write;
-use stm32l0xx_hal::exti::{ExtiLine, GpioLine};
-use stm32l0xx_hal::serial::USART2 as DebugUsart;
-use stm32l0xx_hal::serial;
-use stm32l0xx_hal::{exti::Exti, prelude::*, rcc, rng::Rng, syscfg};
-use sx12xx::Sx12xx;
-use sx12xx;
 use rtfm::app;
+use stm32l0xx_hal::exti::{ExtiLine, GpioLine};
+use stm32l0xx_hal::serial;
+use stm32l0xx_hal::serial::USART2 as DebugUsart;
+use stm32l0xx_hal::{exti::Exti, prelude::*, rcc, rng::Rng, syscfg};
+use sx12xx;
+use sx12xx::{ Sx12xx, LoRaBandwidth, LoRaSpreadingFactor, LoRaCodingRate };
 mod bindings;
 pub use bindings::initialize_irq as initialize_radio_irq;
 pub use bindings::RadioIRQ;
@@ -37,7 +37,7 @@ const APP: () = {
         buffer: [u8; 512],
         #[init(0)]
         count: u8,
-        //sx12xx: Sx12xx,
+        sx12xx: Sx12xx,
     }
 
     #[init(spawn = [send_ping], resources = [buffer])]
@@ -83,10 +83,7 @@ const APP: () = {
             gpioc.pc1,
         );
 
-        let sx12xx = Sx12xx::new(
-            sx12xx::Radio::sx1276(),
-            bindings,
-        );
+        let sx12xx = Sx12xx::new(sx12xx::Radio::sx1276(), bindings);
 
         write!(tx, "Going to main loop\r\n").unwrap();
 
@@ -96,45 +93,60 @@ const APP: () = {
             radio_irq: radio_irq,
             debug_uart: tx,
             uart_rx: rx,
+            sx12xx
         }
     }
 
-    #[task(capacity = 4, priority = 2, resources = [debug_uart, buffer])]
+    #[task(capacity = 4, priority = 2, resources = [debug_uart, buffer, sx12xx])]
     fn radio_event(ctx: radio_event::Context, event: sx12xx::Event) {
-        //let sx12xx = ctx.resources.sx12xx;
-        //let state = sx12xx.handle_event(event);
+        let sx12xx = ctx.resources.sx12xx;
+        let state = sx12xx.handle_event(event);
         let debug = ctx.resources.debug_uart;
 
-        // match state {
-        //     State::Sx12xxState_TxDone => {
-        //         write!(debug, "Transmit Done!\r\n").unwrap();
-        //     }
-        //     State::Sx12xxState_Rx => {
-        //         // get receive buffer
-        //         let rx_packet = longfi_radio.get_rx();
-        //         write!(debug, "Received packet\r\n").unwrap();
-        //         write!(debug, "  Length =  {}\r\n", rx_packet.len).unwrap();
-        //         write!(debug, "  Rssi   = {}\r\n", rx_packet.rssi).unwrap();
-        //         write!(debug, "  Snr    =  {}\r\n", rx_packet.snr).unwrap();
-        //         unsafe {
-        //             for i in 0..rx_packet.len {
-        //                 write!(debug, "{:X} ", *rx_packet.buf.offset(i as isize)).unwrap();
-        //             }
-        //             write!(debug, "\r\n").unwrap();
-        //         }
-        //         // give buffer back to library
-        //         longfi_radio.set_buffer(ctx.resources.buffer);
-        //     }
-        //     State::Sx12xxState_None => {}
-        // }
+        match state {
+            sx12xx::State::Sx12xxState_TxDone => {
+                write!(debug, "Transmit Done!\r\n").unwrap();
+            }
+            sx12xx::State::Sx12xxState_RxDone => {
+                // get receive buffer
+                // let rx_packet = longfi_radio.get_rx();
+                // write!(debug, "Received packet\r\n").unwrap();
+                // write!(debug, "  Length =  {}\r\n", rx_packet.len).unwrap();
+                // write!(debug, "  Rssi   = {}\r\n", rx_packet.rssi).unwrap();
+                // write!(debug, "  Snr    =  {}\r\n", rx_packet.snr).unwrap();
+                // unsafe {
+                //     for i in 0..rx_packet.len {
+                //         write!(debug, "{:X} ", *rx_packet.buf.offset(i as isize)).unwrap();
+                //     }
+                //     write!(debug, "\r\n").unwrap();
+                // }
+                // // give buffer back to library
+                // longfi_radio.set_buffer(ctx.resources.buffer);
+            }
+            sx12xx::State::Sx12xxState_Busy => {}
+            sx12xx::State::Sx12xxState_RxError => {}
+            sx12xx::State::Sx12xxState_RxTimeout => {}
+            sx12xx::State::Sx12xxState_TxTimeout => {}
+        }
     }
 
-    #[task(capacity = 4, priority = 2, resources = [debug_uart, count])]
+    #[task(capacity = 4, priority = 2, resources = [debug_uart, count, sx12xx])]
     fn send_ping(ctx: send_ping::Context) {
         write!(ctx.resources.debug_uart, "Sending Ping\r\n").unwrap();
+
+
         let packet: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, *ctx.resources.count];
         *ctx.resources.count += 1;
-        //ctx.resources.sx12xx.send(&packet);
+
+        let sx12xx = ctx.resources.sx12xx;
+        sx12xx.set_lora_tx_config(
+            22,
+            LoRaBandwidth::_125KHZ,
+            LoRaSpreadingFactor::_10,
+            LoRaCodingRate::_4_5
+        );
+        // sx12xx.set_frequency(902300000);
+        // sx12xx.send(&packet);
     }
 
     #[task(binds = USART2, priority=1, resources = [uart_rx], spawn = [send_ping])]

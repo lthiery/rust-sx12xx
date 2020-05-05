@@ -577,129 +577,129 @@ void SX1276SetTxConfig( RadioModems_t modem, int8_t power, uint32_t fdev,
 
     SX1276SetRfTxPower( power );
 
-    switch( modem )
-    {
-    case MODEM_FSK:
-        {
-            SX1276.Settings.Fsk.Power = power;
-            SX1276.Settings.Fsk.Fdev = fdev;
-            SX1276.Settings.Fsk.Bandwidth = bandwidth;
-            SX1276.Settings.Fsk.Datarate = datarate;
-            SX1276.Settings.Fsk.PreambleLen = preambleLen;
-            SX1276.Settings.Fsk.FixLen = fixLen;
-            SX1276.Settings.Fsk.CrcOn = crcOn;
-            SX1276.Settings.Fsk.IqInverted = iqInverted;
-            SX1276.Settings.Fsk.TxTimeout = timeout;
+    // switch( modem )
+    // {
+    // case MODEM_FSK:
+    //     {
+    //         SX1276.Settings.Fsk.Power = power;
+    //         SX1276.Settings.Fsk.Fdev = fdev;
+    //         SX1276.Settings.Fsk.Bandwidth = bandwidth;
+    //         SX1276.Settings.Fsk.Datarate = datarate;
+    //         SX1276.Settings.Fsk.PreambleLen = preambleLen;
+    //         SX1276.Settings.Fsk.FixLen = fixLen;
+    //         SX1276.Settings.Fsk.CrcOn = crcOn;
+    //         SX1276.Settings.Fsk.IqInverted = iqInverted;
+    //         SX1276.Settings.Fsk.TxTimeout = timeout;
 
-            fdev = ( uint16_t )( ( double )fdev / ( double )FREQ_STEP );
-            SX1276Write( SX1276_REG_FDEVMSB, ( uint8_t )( fdev >> 8 ) );
-            SX1276Write( SX1276_REG_FDEVLSB, ( uint8_t )( fdev & 0xFF ) );
+    //         fdev = ( uint16_t )( ( double )fdev / ( double )FREQ_STEP );
+    //         SX1276Write( SX1276_REG_FDEVMSB, ( uint8_t )( fdev >> 8 ) );
+    //         SX1276Write( SX1276_REG_FDEVLSB, ( uint8_t )( fdev & 0xFF ) );
 
-            datarate = ( uint16_t )( ( double )XTAL_FREQ / ( double )datarate );
-            SX1276Write( SX1276_REG_BITRATEMSB, ( uint8_t )( datarate >> 8 ) );
-            SX1276Write( SX1276_REG_BITRATELSB, ( uint8_t )( datarate & 0xFF ) );
+    //         datarate = ( uint16_t )( ( double )XTAL_FREQ / ( double )datarate );
+    //         SX1276Write( SX1276_REG_BITRATEMSB, ( uint8_t )( datarate >> 8 ) );
+    //         SX1276Write( SX1276_REG_BITRATELSB, ( uint8_t )( datarate & 0xFF ) );
 
-            SX1276Write( SX1276_REG_PREAMBLEMSB, ( preambleLen >> 8 ) & 0x00FF );
-            SX1276Write( SX1276_REG_PREAMBLELSB, preambleLen & 0xFF );
+    //         SX1276Write( SX1276_REG_PREAMBLEMSB, ( preambleLen >> 8 ) & 0x00FF );
+    //         SX1276Write( SX1276_REG_PREAMBLELSB, preambleLen & 0xFF );
 
-            SX1276Write( SX1276_REG_PACKETCONFIG1,
-                         ( SX1276Read( SX1276_REG_PACKETCONFIG1 ) &
-                           RF_PACKETCONFIG1_CRC_MASK &
-                           RF_PACKETCONFIG1_PACKETFORMAT_MASK ) |
-                           ( ( fixLen == 1 ) ? RF_PACKETCONFIG1_PACKETFORMAT_FIXED : RF_PACKETCONFIG1_PACKETFORMAT_VARIABLE ) |
-                           ( crcOn << 4 ) );
-            SX1276Write( SX1276_REG_PACKETCONFIG2, ( SX1276Read( SX1276_REG_PACKETCONFIG2 ) | RF_PACKETCONFIG2_DATAMODE_PACKET ) );
-        }
-        break;
-    case MODEM_LORA:
-        {
-            SX1276.Settings.LoRa.Power = power;
-            if( bandwidth > 2 )
-            {
-                // Fatal error: When using LoRa modem only bandwidths 125, 250 and 500 kHz are supported
-                while( 1 );
-            }
-            bandwidth += 7;
-            SX1276.Settings.LoRa.Bandwidth = bandwidth;
-            SX1276.Settings.LoRa.Datarate = datarate;
-            SX1276.Settings.LoRa.Coderate = coderate;
-            SX1276.Settings.LoRa.PreambleLen = preambleLen;
-            SX1276.Settings.LoRa.FixLen = fixLen;
-            SX1276.Settings.LoRa.FreqHopOn = freqHopOn;
-            SX1276.Settings.LoRa.HopPeriod = hopPeriod;
-            SX1276.Settings.LoRa.CrcOn = crcOn;
-            SX1276.Settings.LoRa.IqInverted = iqInverted;
-            SX1276.Settings.LoRa.TxTimeout = timeout;
+    //         SX1276Write( SX1276_REG_PACKETCONFIG1,
+    //                      ( SX1276Read( SX1276_REG_PACKETCONFIG1 ) &
+    //                        RF_PACKETCONFIG1_CRC_MASK &
+    //                        RF_PACKETCONFIG1_PACKETFORMAT_MASK ) |
+    //                        ( ( fixLen == 1 ) ? RF_PACKETCONFIG1_PACKETFORMAT_FIXED : RF_PACKETCONFIG1_PACKETFORMAT_VARIABLE ) |
+    //                        ( crcOn << 4 ) );
+    //         SX1276Write( SX1276_REG_PACKETCONFIG2, ( SX1276Read( SX1276_REG_PACKETCONFIG2 ) | RF_PACKETCONFIG2_DATAMODE_PACKET ) );
+    //     }
+    //     break;
+    // case MODEM_LORA:
+    //     {
+    //         SX1276.Settings.LoRa.Power = power;
+    //         if( bandwidth > 2 )
+    //         {
+    //             // Fatal error: When using LoRa modem only bandwidths 125, 250 and 500 kHz are supported
+    //             while( 1 );
+    //         }
+    //         bandwidth += 7;
+    //         SX1276.Settings.LoRa.Bandwidth = bandwidth;
+    //         SX1276.Settings.LoRa.Datarate = datarate;
+    //         SX1276.Settings.LoRa.Coderate = coderate;
+    //         SX1276.Settings.LoRa.PreambleLen = preambleLen;
+    //         SX1276.Settings.LoRa.FixLen = fixLen;
+    //         SX1276.Settings.LoRa.FreqHopOn = freqHopOn;
+    //         SX1276.Settings.LoRa.HopPeriod = hopPeriod;
+    //         SX1276.Settings.LoRa.CrcOn = crcOn;
+    //         SX1276.Settings.LoRa.IqInverted = iqInverted;
+    //         SX1276.Settings.LoRa.TxTimeout = timeout;
 
-            if( datarate > 12 )
-            {
-                datarate = 12;
-            }
-            else if( datarate < 6 )
-            {
-                datarate = 6;
-            }
-            if( ( ( bandwidth == 7 ) && ( ( datarate == 11 ) || ( datarate == 12 ) ) ) ||
-                ( ( bandwidth == 8 ) && ( datarate == 12 ) ) )
-            {
-                SX1276.Settings.LoRa.LowDatarateOptimize = 0x01;
-            }
-            else
-            {
-                SX1276.Settings.LoRa.LowDatarateOptimize = 0x00;
-            }
+    //         if( datarate > 12 )
+    //         {
+    //             datarate = 12;
+    //         }
+    //         else if( datarate < 6 )
+    //         {
+    //             datarate = 6;
+    //         }
+    //         if( ( ( bandwidth == 7 ) && ( ( datarate == 11 ) || ( datarate == 12 ) ) ) ||
+    //             ( ( bandwidth == 8 ) && ( datarate == 12 ) ) )
+    //         {
+    //             SX1276.Settings.LoRa.LowDatarateOptimize = 0x01;
+    //         }
+    //         else
+    //         {
+    //             SX1276.Settings.LoRa.LowDatarateOptimize = 0x00;
+    //         }
 
-            if( SX1276.Settings.LoRa.FreqHopOn == true )
-            {
-                SX1276Write( SX1276_REG_LR_PLLHOP, ( SX1276Read( SX1276_REG_LR_PLLHOP ) & SX1276_RFLR_PLLHOP_FASTHOP_MASK ) | SX1276_RFLR_PLLHOP_FASTHOP_ON );
-                SX1276Write( SX1276_REG_LR_HOPPERIOD, SX1276.Settings.LoRa.HopPeriod );
-            }
+    //         if( SX1276.Settings.LoRa.FreqHopOn == true )
+    //         {
+    //             SX1276Write( SX1276_REG_LR_PLLHOP, ( SX1276Read( SX1276_REG_LR_PLLHOP ) & SX1276_RFLR_PLLHOP_FASTHOP_MASK ) | SX1276_RFLR_PLLHOP_FASTHOP_ON );
+    //             SX1276Write( SX1276_REG_LR_HOPPERIOD, SX1276.Settings.LoRa.HopPeriod );
+    //         }
 
-            SX1276Write( SX1276_REG_LR_MODEMCONFIG1,
-                         ( SX1276Read( SX1276_REG_LR_MODEMCONFIG1 ) &
-                           SX1276_RFLR_MODEMCONFIG1_BW_MASK &
-                           SX1276_RFLR_MODEMCONFIG1_CODINGRATE_MASK &
-                           SX1276_RFLR_MODEMCONFIG1_IMPLICITHEADER_MASK ) |
-                           ( bandwidth << 4 ) | ( coderate << 1 ) |
-                           fixLen );
+    //         SX1276Write( SX1276_REG_LR_MODEMCONFIG1,
+    //                      ( SX1276Read( SX1276_REG_LR_MODEMCONFIG1 ) &
+    //                        SX1276_RFLR_MODEMCONFIG1_BW_MASK &
+    //                        SX1276_RFLR_MODEMCONFIG1_CODINGRATE_MASK &
+    //                        SX1276_RFLR_MODEMCONFIG1_IMPLICITHEADER_MASK ) |
+    //                        ( bandwidth << 4 ) | ( coderate << 1 ) |
+    //                        fixLen );
 
-            SX1276Write( SX1276_REG_LR_MODEMCONFIG2,
-                         ( SX1276Read( SX1276_REG_LR_MODEMCONFIG2 ) &
-                           SX1276_RFLR_MODEMCONFIG2_SF_MASK &
-                           SX1276_RFLR_MODEMCONFIG2_RXPAYLOADCRC_MASK ) |
-                           ( datarate << 4 ) | ( crcOn << 2 ) );
+    //         SX1276Write( SX1276_REG_LR_MODEMCONFIG2,
+    //                      ( SX1276Read( SX1276_REG_LR_MODEMCONFIG2 ) &
+    //                        SX1276_RFLR_MODEMCONFIG2_SF_MASK &
+    //                        SX1276_RFLR_MODEMCONFIG2_RXPAYLOADCRC_MASK ) |
+    //                        ( datarate << 4 ) | ( crcOn << 2 ) );
 
-            SX1276Write( SX1276_REG_LR_MODEMCONFIG3,
-                         ( SX1276Read( SX1276_REG_LR_MODEMCONFIG3 ) &
-                           SX1276_RFLR_MODEMCONFIG3_LOWDATARATEOPTIMIZE_MASK ) |
-                           ( SX1276.Settings.LoRa.LowDatarateOptimize << 3 ) );
+    //         SX1276Write( SX1276_REG_LR_MODEMCONFIG3,
+    //                      ( SX1276Read( SX1276_REG_LR_MODEMCONFIG3 ) &
+    //                        SX1276_RFLR_MODEMCONFIG3_LOWDATARATEOPTIMIZE_MASK ) |
+    //                        ( SX1276.Settings.LoRa.LowDatarateOptimize << 3 ) );
 
-            SX1276Write( SX1276_REG_LR_PREAMBLEMSB, ( preambleLen >> 8 ) & 0x00FF );
-            SX1276Write( SX1276_REG_LR_PREAMBLELSB, preambleLen & 0xFF );
+    //         SX1276Write( SX1276_REG_LR_PREAMBLEMSB, ( preambleLen >> 8 ) & 0x00FF );
+    //         SX1276Write( SX1276_REG_LR_PREAMBLELSB, preambleLen & 0xFF );
 
-            if( datarate == 6 )
-            {
-                SX1276Write( SX1276_REG_LR_DETECTOPTIMIZE,
-                             ( SX1276Read( SX1276_REG_LR_DETECTOPTIMIZE ) &
-                               SX1276_RFLR_DETECTIONOPTIMIZE_MASK ) |
-                               SX1276_RFLR_DETECTIONOPTIMIZE_SF6 );
-                SX1276Write( SX1276_REG_LR_DETECTIONTHRESHOLD,
-                             SX1276_RFLR_DETECTIONTHRESH_SF6 );
-            }
-            else
-            {
-                SX1276Write( SX1276_REG_LR_DETECTOPTIMIZE,
-                             ( SX1276Read( SX1276_REG_LR_DETECTOPTIMIZE ) &
-                             SX1276_RFLR_DETECTIONOPTIMIZE_MASK ) |
-                             SX1276_RFLR_DETECTIONOPTIMIZE_SF7_TO_SF12 );
-                SX1276Write( SX1276_REG_LR_DETECTIONTHRESHOLD,
-                             SX1276_RFLR_DETECTIONTHRESH_SF7_TO_SF12 );
-            }
-        }
-        break;
-        default:
-        break;
-    }
+    //         if( datarate == 6 )
+    //         {
+    //             SX1276Write( SX1276_REG_LR_DETECTOPTIMIZE,
+    //                          ( SX1276Read( SX1276_REG_LR_DETECTOPTIMIZE ) &
+    //                            SX1276_RFLR_DETECTIONOPTIMIZE_MASK ) |
+    //                            SX1276_RFLR_DETECTIONOPTIMIZE_SF6 );
+    //             SX1276Write( SX1276_REG_LR_DETECTIONTHRESHOLD,
+    //                          SX1276_RFLR_DETECTIONTHRESH_SF6 );
+    //         }
+    //         else
+    //         {
+    //             SX1276Write( SX1276_REG_LR_DETECTOPTIMIZE,
+    //                          ( SX1276Read( SX1276_REG_LR_DETECTOPTIMIZE ) &
+    //                          SX1276_RFLR_DETECTIONOPTIMIZE_MASK ) |
+    //                          SX1276_RFLR_DETECTIONOPTIMIZE_SF7_TO_SF12 );
+    //             SX1276Write( SX1276_REG_LR_DETECTIONTHRESHOLD,
+    //                          SX1276_RFLR_DETECTIONTHRESH_SF7_TO_SF12 );
+    //         }
+    //     }
+    //     break;
+    //     default:
+    //     break;
+    // }
 }
 
 uint32_t SX1276GetTimeOnAir( RadioModems_t modem, uint8_t pktLen )

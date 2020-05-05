@@ -7,9 +7,9 @@ use hal::rcc::Rcc;
 use hal::rng;
 use hal::spi;
 
-use sx12xx::{AntPinsMode, BoardBindings};
 use nb::block;
 use stm32l0xx_hal as hal;
+use sx12xx::{AntPinsMode, BoardBindings};
 
 type Uninitialized = Analog;
 
