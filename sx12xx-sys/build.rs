@@ -22,6 +22,7 @@ fn main() {
        .use_core()
        .ctypes_prefix("cty")
        .detect_include_paths(true)
+       .header("sx12xx/sx12xx.h")
        .header("sx12xx/board.h")
        .header("sx12xx/radio.h")
        .header("sx12xx/sx1276/sx1276.h")
@@ -30,6 +31,22 @@ fn main() {
        .clang_arg(format!("-I{}/include",dst.display()))
        .trust_clang_mangling(false)
        .rustfmt_bindings(true)
+       .whitelist_type("Radio_t")
+       .whitelist_type("RadioModems_t")
+       .whitelist_type("Sx12xxEvent_t")
+       .whitelist_type("Sx12xxState_t")
+       .whitelist_type("AntPinsMode_t")
+       .whitelist_type("RadioModems_t")
+       .whitelist_type("Sx12xx_t")
+       .rustified_enum("Sx12xxEvent_t")
+       .rustified_enum("Sx12xxState_t")
+       .rustified_enum("AntPinsMode_t")
+       .whitelist_function("SX1276RadioNew")
+       .whitelist_function("SX126xRadioNew")
+       .whitelist_function("sx12xx_init")
+       .whitelist_function("sx12xx_new_handle")
+       .whitelist_function("sx12xx_handle_event")
+       .whitelist_function("sx12xx_send")
        .derive_copy(false)
        .derive_debug(false)
        .layout_tests(false)
@@ -46,3 +63,4 @@ fn main() {
 // fn main() {
 //    cargo_5730::run_build_script();
 // }
+

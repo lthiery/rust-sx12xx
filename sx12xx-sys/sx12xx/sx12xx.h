@@ -12,7 +12,7 @@ extern "C"
 #include <stdint.h>
 #include <stdlib.h>
 
-    typedef enum Sx126xxEvent
+    typedef enum Sx12xxEvent_t
     {
         Sx12xxEvent_DIO0,   // TxDone or Rx
         Sx12xxEvent_DIO1,   // unimplemented
@@ -25,7 +25,7 @@ extern "C"
         Sx12xxEvent_Timer3 = 0xFFFFFFFF // force 32-bit value,
     } Sx12xxEvent_t;
 
-    typedef enum Sx126xxState
+    typedef enum Sx12xxState_t
     {
         Sx12xxState_Busy,
         Sx12xxState_TxDone,
@@ -38,26 +38,30 @@ extern "C"
     typedef struct Sx12xx
     {
         void (*dio_irq_handles[NUM_IRQ_HANDLES])();
-        RadioEvents_t   radio_events;
+        BoardBindings_t bindings;
+        Radio_t radio;
+        RadioEvents_t radio_events;
         Sx12xxState_t state;
         uint16_t rx_len;
         int16_t rssi;
         int8_t snr;
-        Radio_t radio;
-        BoardBindings_t bindings;
     } Sx12xx_t;
 
+    Sx12xx_t sx12xx_new_handle(void);
     /*!
      * \brief  Run time initialization of library
      *
      */
-    void sx12xx_init(Sx12xx_t *, Radio_t, BoardBindings_t);
+    void sx12xx_init(Radio_t *, BoardBindings_t);
 
     /*!
      * \brief To be used by client in a low-priorty loop, feeding events into the library
      *
      */
-    Sx12xxState_t sx12xx_handle_event(Sx12xx_t *, Sx12xxEvent_t);
+    Sx12xxState_t sx12xx_handle_event(Sx12xxEvent_t);
+
+    void
+sx12xx_send(Radio_t * radio, const uint8_t * data, size_t len);
 
 #ifdef __cplusplus
 }

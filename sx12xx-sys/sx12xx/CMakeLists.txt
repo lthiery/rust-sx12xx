@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 add_library(sx12xx STATIC
   sx12xx.c
+  board.c
   sx126x/radio.c
   sx126x/sx126x.c
   sx126x/sx126x-board.c

@@ -12,8 +12,11 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 
 Maintainer: Miguel Luis and Gregory Cristian
 */
+#include "./../sx12xx.h"
 #include "sx1276.h"
 #include "sx1276-board.h"
+
+extern Sx12xx_t sx12xx_handle;
 
 /*!
  * Flag used to set the RF switch control pins in low power mode when the radio is not active.
@@ -55,8 +58,8 @@ uint8_t SX1276GetPaSelect( uint32_t channel )
 void SX1276SetAntSwLowPower( bool status )
 {
     if(status) {
-        if( bindings->set_antenna_pins!= NULL ){
-            (*bindings->set_antenna_pins)(AntModeSleep, 0);
+        if( sx12xx_handle.bindings.set_antenna_pins!= NULL ){
+            (*sx12xx_handle.bindings.set_antenna_pins)(AntModeSleep, 0);
         }
     }
     RadioIsActive = status;
@@ -73,17 +76,17 @@ void SX1276AntSwDeInit( void )
 void SX1276SetAntSw( uint8_t opMode )
 {
 
-    if( bindings->set_antenna_pins!= NULL ){
+    if( sx12xx_handle.bindings.set_antenna_pins!= NULL ){
         switch( opMode )
         {
         case SX1276_RFLR_OPMODE_SLEEP:
-            (*bindings->set_antenna_pins)(AntModeSleep, 0);
+            (*sx12xx_handle.bindings.set_antenna_pins)(AntModeSleep, 0);
             break;
         case SX1276_RFLR_OPMODE_TRANSMITTER:
-            (*bindings->set_antenna_pins)(AntModeTx, selected_power);
+            (*sx12xx_handle.bindings.set_antenna_pins)(AntModeTx, selected_power);
             break;
         default:
-            (*bindings->set_antenna_pins)(AntModeRx, 0);
+            (*sx12xx_handle.bindings.set_antenna_pins)(AntModeRx, 0);
             break;
         }
     }
@@ -99,26 +102,26 @@ void SX1276Reset( )
 {
     // if user has given board_tcxo pointer
     // enable it
-    if(bindings->set_board_tcxo!=NULL){
-        (*bindings->reset)(true);
-        (*bindings->delay_ms)(1);
-        (*bindings->reset)(false);
-        uint8_t osc_setup_time = (*bindings->set_board_tcxo)(true);
-        (*bindings->delay_ms)(osc_setup_time);
+    if(sx12xx_handle.bindings.set_board_tcxo!=NULL){
+        (*sx12xx_handle.bindings.reset)(true);
+        (*sx12xx_handle.bindings.delay_ms)(1);
+        (*sx12xx_handle.bindings.reset)(false);
+        uint8_t osc_setup_time = (*sx12xx_handle.bindings.set_board_tcxo)(true);
+        (*sx12xx_handle.bindings.delay_ms)(osc_setup_time);
         SX1276EnableTcxo();
     };
 
     // reset required, even after TCXO enabling routine
-    (*bindings->reset)(true);
-    (*bindings->delay_ms)(1);
-    (*bindings->reset)(false);
+    (*sx12xx_handle.bindings.reset)(true);
+    (*sx12xx_handle.bindings.delay_ms)(1);
+    (*sx12xx_handle.bindings.reset)(false);
 }
 
 
 void SX1276SetRfTxPower( int8_t power ){
-    if( bindings->reduce_power!= NULL ){
-        power -= (*bindings->reduce_power)(power);
-    }
+    // if( sx12xx_handle.bindings.reduce_power!= NULL ){
+    //     power -= (*sx12xx_handle.bindings.reduce_power)(power);
+    // }
     power = power;
     // uint8_t paConfig, paDac;
 
