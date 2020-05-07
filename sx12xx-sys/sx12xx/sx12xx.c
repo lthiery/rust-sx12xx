@@ -99,7 +99,7 @@ void
 OnRxDone(uint8_t * payload, uint16_t size, int16_t rssi, int8_t snr)
 {
     sx12xx_handle.state = Sx12xxState_RxDone;
-    sx12xx_handle.rx_len    = size;
+    sx12xx_handle.rx_len = size;
     sx12xx_handle.rssi = rssi;
     sx12xx_handle.snr  = snr;
 }

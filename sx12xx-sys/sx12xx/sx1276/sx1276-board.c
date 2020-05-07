@@ -58,9 +58,9 @@ uint8_t SX1276GetPaSelect( uint32_t channel )
 void SX1276SetAntSwLowPower( bool status )
 {
     if(status) {
-        // if( bindings.set_antenna_pins!= NULL ){
-        //     (*bindings.set_antenna_pins)(AntModeSleep, 0);
-        // }
+        if( sx12xx_handle.bindings.set_antenna_pins!= NULL ){
+            (*sx12xx_handle.bindings.set_antenna_pins)(AntModeSleep, 0);
+        }
     }
     RadioIsActive = status;
 }
@@ -102,19 +102,19 @@ void SX1276Reset( )
 {
     // if user has given board_tcxo pointer
     // enable it
-    // if(bindings.set_board_tcxo!=NULL){
-    //     (*bindings.reset)(true);
-    //     (*bindings.delay_ms)(1);
-    //     (*bindings.reset)(false);
-    //     uint8_t osc_setup_time = (*bindings.set_board_tcxo)(true);
-    //     (*bindings.delay_ms)(osc_setup_time);
-    //     SX1276EnableTcxo();
-    // };
+    if(sx12xx_handle.bindings.set_board_tcxo!=NULL){
+        (*sx12xx_handle.bindings.reset)(true);
+        (*sx12xx_handle.bindings.delay_ms)(1);
+        (*sx12xx_handle.bindings.reset)(false);
+        uint8_t osc_setup_time = (*sx12xx_handle.bindings.set_board_tcxo)(true);
+        (*sx12xx_handle.bindings.delay_ms)(osc_setup_time);
+        SX1276EnableTcxo();
+    };
 
-    // // reset required, even after TCXO enabling routine
-    // (*bindings.reset)(true);
-    // (*bindings.delay_ms)(1);
-    // (*bindings.reset)(false);
+    // reset required, even after TCXO enabling routine
+    (*sx12xx_handle.bindings.reset)(true);
+    (*sx12xx_handle.bindings.delay_ms)(1);
+    (*sx12xx_handle.bindings.reset)(false);
 }
 
 

@@ -18,7 +18,7 @@ pub struct Radio {
 
 enum HopPeriod {
     Disabled,
-    Enabled(u8), // number of symbols between each hop
+    Enabled(u8),
 }
 
 struct Settings {
@@ -106,7 +106,7 @@ impl Sx12xx {
         self.buffer.extend(buffer);
         unsafe { 
             if let Some(send) = self.radio.c_handle.Send {
-                send(self.buffer.as_mut_ptr(), self.buffer.len() as u8);
+                send(self.buffer.as_mut_ptr(), 32);
             }
         };
     }
@@ -155,24 +155,25 @@ impl Sx12xx {
         unsafe {
             if let Some(set_tx_config) = self.radio.c_handle.SetTxConfig {
                 set_tx_config(
-                    RadioModems_t_MODEM_FSK,
-                    power,
-                    0,
-                    bandwidth as u32,
-                    datarate as u32,
-                    coderate as u8,
-                    self.settings.preamble_len,
-                    self.settings.fix_len,
-                    self.settings.crc_on,
-                    freq_hop_on,
-                    hop_period,
-                    self.settings.iq_inverted,
-                    0,
+                    RadioModems_t_MODEM_LORA, // modem
+                    power, // power
+                    0, // fdev (is always 0 for LoRa)
+                    bandwidth as u32, // bandwidth
+                    datarate as u32, // datarate
+                    coderate as u8, // coding rate
+                    self.settings.preamble_len, // preamble len
+                    self.settings.fix_len, // fix length packet
+                    self.settings.crc_on, // crc setting
+                    freq_hop_on, // frequency hop setting
+                    hop_period, // number of symbols before hop
+                    self.settings.iq_inverted, // inverted iq
+                    3000, // transmission timeout
                 );
             }
         };
     }
-        pub fn set_frequency(
+
+    pub fn set_frequency(
         &mut self,
         frequency: u32
     ) {

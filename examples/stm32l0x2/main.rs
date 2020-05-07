@@ -126,7 +126,9 @@ const APP: () = {
             sx12xx::State::Sx12xxState_Busy => {}
             sx12xx::State::Sx12xxState_RxError => {}
             sx12xx::State::Sx12xxState_RxTimeout => {}
-            sx12xx::State::Sx12xxState_TxTimeout => {}
+            sx12xx::State::Sx12xxState_TxTimeout => {
+                panic!("TxTimeout not handle");
+            }
         }
     }
 
@@ -134,8 +136,7 @@ const APP: () = {
     fn send_ping(ctx: send_ping::Context) {
         write!(ctx.resources.debug_uart, "Sending Ping\r\n").unwrap();
 
-
-        let packet: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, *ctx.resources.count];
+        let packet: [u8; 128] = [0; 128];//[0xDE, 0xAD, 0xBE, 0xEF, *ctx.resources.count];
         *ctx.resources.count += 1;
 
         let sx12xx = ctx.resources.sx12xx;
@@ -145,8 +146,9 @@ const APP: () = {
             LoRaSpreadingFactor::_10,
             LoRaCodingRate::_4_5
         );
-        // sx12xx.set_frequency(902300000);
-        // sx12xx.send(&packet);
+
+        sx12xx.set_frequency(902700000);
+        sx12xx.send(&packet);
     }
 
     #[task(binds = USART2, priority=1, resources = [uart_rx], spawn = [send_ping])]
@@ -159,7 +161,7 @@ const APP: () = {
     #[task(binds = EXTI4_15, priority = 1, resources = [radio_irq, int], spawn = [radio_event])]
     fn EXTI4_15(ctx: EXTI4_15::Context) {
         Exti::unpend(GpioLine::from_raw_line(ctx.resources.radio_irq.pin_number()).unwrap());
-        //ctx.spawn.radio_event(sx12xx::Event::Sx12xxEvent_DIO0).unwrap();
+        ctx.spawn.radio_event(sx12xx::Event::Sx12xxEvent_DIO0).unwrap();
     }
 
     // Interrupt handlers used to dispatch software tasks
