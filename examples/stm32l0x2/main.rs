@@ -1,5 +1,4 @@
 #![cfg_attr(not(test), no_std)]
-#![no_main]
 
 // To use example, press any key in serial terminal
 // Packet will send and "Transmit Done!" will print when radio is done sending packet
@@ -21,12 +20,6 @@ mod bindings;
 pub use bindings::initialize_irq as initialize_radio_irq;
 pub use bindings::RadioIRQ;
 pub use bindings::TcxoEn;
-
-const OUI: u32 = 1;
-const DEVICE_ID: u16 = 3;
-const PRESHARED_KEY: [u8; 16] = [
-    0x7B, 0x60, 0xC0, 0xF0, 0x77, 0x51, 0x50, 0xD3, 0x2, 0xCE, 0xAE, 0x50, 0xA0, 0xD2, 0x11, 0xC1,
-];
 
 #[app(device = stm32l0xx_hal::pac, peripherals = true)]
 const APP: () = {

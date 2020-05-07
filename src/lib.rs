@@ -1,7 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 use sx12xx_sys::*;
 
-use Sx12xx_t;
 extern crate libm;
 
 pub use sx12xx_sys::AntPinsMode_t as AntPinsMode;
@@ -116,7 +115,6 @@ impl Sx12xx {
         power: i8,
         fdev: u32,
         datarate: u32,
-        preamble_len: u16,
     ) {
         unsafe {
             if let Some(set_tx_config) = self.radio.c_handle.SetTxConfig {
@@ -156,7 +154,7 @@ impl Sx12xx {
             if let Some(set_tx_config) = self.radio.c_handle.SetTxConfig {
                 set_tx_config(
                     RadioModems_t_MODEM_LORA, // modem
-                    17, // power
+                    power, // power
                     0, // fdev (is always 0 for LoRa)
                     bandwidth as u32, // bandwidth
                     datarate as u32, // datarate
