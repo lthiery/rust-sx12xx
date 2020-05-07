@@ -119,9 +119,9 @@ void SX1276Reset( )
 
 
 void SX1276SetRfTxPower( int8_t power ){
-    if( sx12xx_handle.bindings.reduce_power!= NULL ){
-        power -= (*sx12xx_handle.bindings.reduce_power)(power);
-    }
+    // if( sx12xx_handle.bindings.reduce_power!= NULL ){
+    //     power -= (*sx12xx_handle.bindings.reduce_power)(power);
+    // }
     power = power;
     // uint8_t paConfig, paDac;
 

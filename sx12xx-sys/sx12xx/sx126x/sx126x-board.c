@@ -20,12 +20,13 @@
  *
  * \author    Gregory Cristian ( Semtech )
  */
-
+#include "./../sx12xx.h"
 #include "./sx126x-board.h"
 
 /*!
  * Radio hardware and global parameters
  */
+extern Sx12xx_t sx12xx_handle;
 extern SX126x_t SX126x;
 
 /*!
@@ -82,15 +83,15 @@ uint32_t SX126xGetBoardTcxoWakeupTime( void )
 void SX126xReset( void )
 {
     // reset required, even after TCXO enabling routine
-    (*bindings->reset)(true);
-    (*bindings->delay_ms)(20);
-    (*bindings->reset)(false);
-    (*bindings->delay_ms)(10);
+    (*sx12xx_handle.bindings.reset)(true);
+    (*sx12xx_handle.bindings.delay_ms)(20);
+    (*sx12xx_handle.bindings.reset)(false);
+    (*sx12xx_handle.bindings.delay_ms)(10);
 }
 
 void SX126xWaitOnBusy( void )
 {
-    while( (*bindings->busy_pin_status)() == 1);
+    while( (*sx12xx_handle.bindings.busy_pin_status)() == 1);
 }
 
 void SX126xWakeup( void )
@@ -237,8 +238,8 @@ void SX126xReadBuffer( uint8_t offset, uint8_t *buffer, uint8_t size )
 
 void SX126xSetRfTxPower( int8_t power )
 {
-    if( bindings->reduce_power!= NULL ){
-        power -= (*bindings->reduce_power)(power);
+    if( sx12xx_handle.bindings.reduce_power!= NULL ){
+        power -= (*sx12xx_handle.bindings.reduce_power)(power);
     }
     SX126xSetTxParams( power, RADIO_RAMP_40_US );
 }
@@ -250,16 +251,16 @@ uint8_t SX126xGetDeviceId( void )
 
 void SX126xAntSwOn( void )
 {
-    if( bindings->set_antenna_pins!= NULL ){
-        (*bindings->set_antenna_pins)(AntModeTx, 0);
+    if( sx12xx_handle.bindings.set_antenna_pins!= NULL ){
+        (*sx12xx_handle.bindings.set_antenna_pins)(AntModeTx, 0);
     }
 }
 
 void SX126xAntSwOff( void )
 {
 
-    if( bindings->set_antenna_pins!= NULL ){
-        (*bindings->set_antenna_pins)(AntModeSleep, 0);
+    if( sx12xx_handle.bindings.set_antenna_pins!= NULL ){
+        (*sx12xx_handle.bindings.set_antenna_pins)(AntModeSleep, 0);
     }
     RadioIsActive = false;
 }

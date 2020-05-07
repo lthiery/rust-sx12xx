@@ -1084,7 +1084,6 @@ void SX1276SetTx( uint32_t timeout )
         {
             if( SX1276.Settings.LoRa.FreqHopOn == true )
             {
-                            while(1){};
                 SX1276Write( SX1276_REG_LR_IRQFLAGSMASK, SX1276_RFLR_IRQFLAGS_RXTIMEOUT |
                                                   SX1276_RFLR_IRQFLAGS_RXDONE |
                                                   SX1276_RFLR_IRQFLAGS_PAYLOADCRCERROR |

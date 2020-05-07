@@ -37,6 +37,7 @@ typedef enum
 {
     MODEM_FSK = 0,
     MODEM_LORA,
+    RadioModems_t_MAX = 0xFFFFFFFF // force 32-bit value,
 }RadioModems_t;
 
 /*!

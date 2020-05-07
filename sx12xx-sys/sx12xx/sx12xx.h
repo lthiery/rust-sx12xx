@@ -60,6 +60,9 @@ extern "C"
      */
     Sx12xxState_t sx12xx_handle_event(Sx12xxEvent_t);
 
+    void
+sx12xx_send(Radio_t * radio, const uint8_t * data, size_t len);
+
 #ifdef __cplusplus
 }
 #endif

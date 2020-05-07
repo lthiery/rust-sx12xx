@@ -46,7 +46,9 @@ pub fn new(
     rx: gpioa::PA1<Uninitialized>,
     tx_rfo: gpioc::PC2<Uninitialized>,
     tx_boost: gpioc::PC1<Uninitialized>,
+    tcxo_en_pin: Option<gpioa::PA8<Uninitialized>>,
 ) -> BoardBindings {
+    let mut set_board_tcxo = None;
     // store all of the necessary pins and peripherals into statics
     // this is necessary as the extern C functions need access
     // this is safe, thanks to ownership and because these statics are private
@@ -54,7 +56,7 @@ pub fn new(
         SPI = Some(spi_peripheral.spi(
             (spi_sck, spi_miso, spi_mosi),
             spi::MODE_0,
-            1_000_000.hz(),
+            200_000.hz(),
             rcc,
         ));
         SPI_NSS = Some(spi_nss_pin.into_push_pull_output());
@@ -65,6 +67,10 @@ pub fn new(
             tx_boost.into_push_pull_output(),
         ));
         RNG = Some(rng);
+        if let Some(tcxo_en) = tcxo_en_pin {
+            EN_TCXO = Some(tcxo_en.into_push_pull_output());
+            set_board_tcxo = Some(set_tcxo as unsafe extern "C" fn(bool) -> u8);
+        }
     };
 
     BoardBindings {
@@ -74,10 +80,26 @@ pub fn new(
         delay_ms: Some(delay_ms),
         get_random_bits: Some(get_random_bits),
         set_antenna_pins: Some(set_antenna_pins),
-        set_board_tcxo: None,
+        set_board_tcxo,
         busy_pin_status: None,
         reduce_power: None,
     }
+}
+
+static mut EN_TCXO: Option<TcxoEn> = None;
+
+#[no_mangle]
+pub extern "C" fn set_tcxo(value: bool) -> u8 {
+    unsafe {
+        if let Some(pin) = &mut EN_TCXO {
+            if value {
+                pin.set_high().unwrap();
+            } else {
+                pin.set_low().unwrap();
+            }
+        }
+    }
+    6
 }
 
 type SpiPort = hal::spi::Spi<

@@ -11,7 +11,9 @@ use core::fmt::Write;
 use rtfm::app;
 use stm32l0xx_hal::exti::{ExtiLine, GpioLine};
 use stm32l0xx_hal::serial;
-use stm32l0xx_hal::serial::USART2 as DebugUsart;
+//use stm32l0xx_hal::serial::USART2 as DebugUsart;
+use stm32l0xx_hal::serial::USART1 as DebugUsart;
+use stm32l0xx_hal::serial::Serial1Ext;
 use stm32l0xx_hal::{exti::Exti, prelude::*, rcc, rng::Rng, syscfg};
 use sx12xx;
 use sx12xx::{ Sx12xx, LoRaBandwidth, LoRaSpreadingFactor, LoRaCodingRate };
@@ -50,7 +52,8 @@ const APP: () = {
         let gpiob = device.GPIOB.split(&mut rcc);
         let gpioc = device.GPIOC.split(&mut rcc);
 
-        let (tx_pin, rx_pin, serial_peripheral) = (gpioa.pa2, gpioa.pa3, device.USART2);
+        // let (tx_pin, rx_pin, serial_peripheral) = (gpioa.pa2, gpioa.pa3, device.USART2);
+        let (tx_pin, rx_pin, serial_peripheral) = (gpioa.pa9, gpioa.pa10, device.USART1);
 
         let mut serial = serial_peripheral
             .usart(tx_pin, rx_pin, serial::Config::default(), &mut rcc)
@@ -81,9 +84,11 @@ const APP: () = {
             gpioa.pa1,
             gpioc.pc2,
             gpioc.pc1,
+            Some(gpioa.pa8)
         );
 
-        let sx12xx = Sx12xx::new(sx12xx::Radio::sx1276(), bindings);
+        let mut sx12xx = Sx12xx::new(sx12xx::Radio::sx1276(), bindings);
+        sx12xx.set_public_network(true);
 
         write!(tx, "Going to main loop\r\n").unwrap();
 
@@ -136,7 +141,7 @@ const APP: () = {
     fn send_ping(ctx: send_ping::Context) {
         write!(ctx.resources.debug_uart, "Sending Ping\r\n").unwrap();
 
-        let packet: [u8; 128] = [0; 128];//[0xDE, 0xAD, 0xBE, 0xEF, *ctx.resources.count];
+        let packet: [u8; 32] = [0; 32];//[0xDE, 0xAD, 0xBE, 0xEF, *ctx.resources.count];
         *ctx.resources.count += 1;
 
         let sx12xx = ctx.resources.sx12xx;
@@ -146,13 +151,15 @@ const APP: () = {
             LoRaSpreadingFactor::_10,
             LoRaCodingRate::_4_5
         );
-
         sx12xx.set_frequency(902700000);
         sx12xx.send(&packet);
     }
 
-    #[task(binds = USART2, priority=1, resources = [uart_rx], spawn = [send_ping])]
-    fn USART2(ctx: USART2::Context) {
+    // #[task(binds = USART2, priority=1, resources = [uart_rx], spawn = [send_ping])]
+    // fn USART2(ctx: USART2::Context) {
+
+    #[task(binds = USART1, priority=1, resources = [uart_rx], spawn = [send_ping])]
+    fn USART1(ctx: USART1::Context) {
         let rx = ctx.resources.uart_rx;
         rx.read().unwrap();
         ctx.spawn.send_ping().unwrap();
