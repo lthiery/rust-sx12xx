@@ -11,11 +11,11 @@ use rtfm::app;
 use stm32l0xx_hal::exti::{ExtiLine, GpioLine};
 use stm32l0xx_hal::serial;
 //use stm32l0xx_hal::serial::USART2 as DebugUsart;
-use stm32l0xx_hal::serial::USART1 as DebugUsart;
 use stm32l0xx_hal::serial::Serial1Ext;
+use stm32l0xx_hal::serial::USART1 as DebugUsart;
 use stm32l0xx_hal::{exti::Exti, prelude::*, rcc, rng::Rng, syscfg};
 use sx12xx;
-use sx12xx::{ Sx12xx, LoRaBandwidth, LoRaSpreadingFactor, LoRaCodingRate };
+use sx12xx::{LoRaBandwidth, LoRaCodingRate, LoRaSpreadingFactor, Sx12xx};
 mod bindings;
 pub use bindings::initialize_irq as initialize_radio_irq;
 pub use bindings::RadioIRQ;
@@ -77,7 +77,7 @@ const APP: () = {
             gpioa.pa1,
             gpioc.pc2,
             gpioc.pc1,
-            Some(gpioa.pa8)
+            Some(gpioa.pa8),
         );
 
         let mut sx12xx = Sx12xx::new(sx12xx::Radio::sx1276(), bindings);
@@ -91,7 +91,7 @@ const APP: () = {
             radio_irq: radio_irq,
             debug_uart: tx,
             uart_rx: rx,
-            sx12xx
+            sx12xx,
         }
     }
 
@@ -134,7 +134,7 @@ const APP: () = {
     fn send_ping(ctx: send_ping::Context) {
         write!(ctx.resources.debug_uart, "Sending Ping\r\n").unwrap();
 
-        let packet: [u8; 32] = [0; 32];//[0xDE, 0xAD, 0xBE, 0xEF, *ctx.resources.count];
+        let packet: [u8; 32] = [0; 32]; //[0xDE, 0xAD, 0xBE, 0xEF, *ctx.resources.count];
         *ctx.resources.count += 1;
 
         let sx12xx = ctx.resources.sx12xx;
@@ -142,7 +142,7 @@ const APP: () = {
             22,
             LoRaBandwidth::_125KHZ,
             LoRaSpreadingFactor::_10,
-            LoRaCodingRate::_4_5
+            LoRaCodingRate::_4_5,
         );
         sx12xx.set_frequency(902700000);
         sx12xx.send(&packet);
@@ -161,7 +161,9 @@ const APP: () = {
     #[task(binds = EXTI4_15, priority = 1, resources = [radio_irq, int], spawn = [radio_event])]
     fn EXTI4_15(ctx: EXTI4_15::Context) {
         Exti::unpend(GpioLine::from_raw_line(ctx.resources.radio_irq.pin_number()).unwrap());
-        ctx.spawn.radio_event(sx12xx::Event::Sx12xxEvent_DIO0).unwrap();
+        ctx.spawn
+            .radio_event(sx12xx::Event::Sx12xxEvent_DIO0)
+            .unwrap();
     }
 
     // Interrupt handlers used to dispatch software tasks

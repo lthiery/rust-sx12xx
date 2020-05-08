@@ -8,8 +8,8 @@ pub use sx12xx_sys::BoardBindings_t as BoardBindings;
 pub use sx12xx_sys::Sx12xxEvent_t as Event;
 pub use sx12xx_sys::Sx12xxState_t as State;
 
-use heapless::Vec;
 use heapless::consts::*;
+use heapless::Vec;
 
 pub struct Radio {
     c_handle: Radio_t,
@@ -25,7 +25,7 @@ struct Settings {
     hop_period: HopPeriod,
     crc_on: bool,
     fix_len: bool,
-    preamble_len: u16
+    preamble_len: u16,
 }
 
 pub struct Sx12xx {
@@ -75,8 +75,6 @@ pub enum LoRaCodingRate {
     _4_8 = 4,
 }
 
-
-
 impl Sx12xx {
     pub fn new(mut radio: Radio, bindings: BoardBindings) -> Sx12xx {
         unsafe {
@@ -90,7 +88,7 @@ impl Sx12xx {
                 hop_period: HopPeriod::Disabled,
                 crc_on: true,
                 fix_len: false,
-                preamble_len: 8
+                preamble_len: 8,
             },
             buffer: Vec::new(),
         }
@@ -100,22 +98,24 @@ impl Sx12xx {
         unsafe { sx12xx_handle_event(event) }
     }
 
-    pub fn send(&mut self, buffer: &[u8]) {
-        self.buffer.clear();
-        self.buffer.extend(buffer);
-        unsafe { 
+    pub fn get_buffer(&mut self) -> &mut Vec<u8, U256> {
+        &mut self.buffer
+    }
+
+    pub fn send_buffer(&mut self) {
+        unsafe {
             if let Some(send) = self.radio.c_handle.Send {
-                send(self.buffer.as_mut_ptr(), 32);
+                send(self.buffer.as_mut_ptr(), self.buffer.len() as u8);
             }
         };
     }
+    pub fn send(&mut self, buffer: &[u8]) {
+        self.buffer.clear();
+        self.buffer.extend(buffer);
+        self.send_buffer();
+    }
 
-    pub fn set_fsk_tx_config(
-        &mut self,
-        power: i8,
-        fdev: u32,
-        datarate: u32,
-    ) {
+    pub fn configure_fsk_tx(&mut self, power: i8, fdev: u32, datarate: u32) {
         unsafe {
             if let Some(set_tx_config) = self.radio.c_handle.SetTxConfig {
                 set_tx_config(
@@ -137,14 +137,15 @@ impl Sx12xx {
         };
     }
 
-    pub fn set_lora_tx_config(
+    pub fn configure_lora_tx(
         &mut self,
         power: i8,
         bandwidth: LoRaBandwidth,
         datarate: LoRaSpreadingFactor,
         coderate: LoRaCodingRate,
     ) {
-        let (freq_hop_on, hop_period) = if let HopPeriod::Enabled(period) = self.settings.hop_period {
+        let (freq_hop_on, hop_period) = if let HopPeriod::Enabled(period) = self.settings.hop_period
+        {
             (true, period)
         } else {
             (false, 0)
@@ -153,40 +154,34 @@ impl Sx12xx {
         unsafe {
             if let Some(set_tx_config) = self.radio.c_handle.SetTxConfig {
                 set_tx_config(
-                    RadioModems_t_MODEM_LORA, // modem
-                    power, // power
-                    0, // fdev (is always 0 for LoRa)
-                    bandwidth as u32, // bandwidth
-                    datarate as u32, // datarate
-                    coderate as u8, // coding rate
+                    RadioModems_t_MODEM_LORA,   // modem
+                    power,                      // power
+                    0,                          // fdev (is always 0 for LoRa)
+                    bandwidth as u32,           // bandwidth
+                    datarate as u32,            // datarate
+                    coderate as u8,             // coding rate
                     self.settings.preamble_len, // preamble len
-                    self.settings.fix_len, // fix length packet
-                    self.settings.crc_on, // crc setting
-                    freq_hop_on, // frequency hop setting
-                    hop_period, // number of symbols before hop
-                    self.settings.iq_inverted, // inverted iq
-                    3000, // transmission timeout
+                    self.settings.fix_len,      // fix length packet
+                    self.settings.crc_on,       // crc setting
+                    freq_hop_on,                // frequency hop setting
+                    hop_period,                 // number of symbols before hop
+                    self.settings.iq_inverted,  // inverted iq
+                    3000,                       // transmission timeout
                 );
             }
         };
     }
 
-    pub fn set_frequency(
-        &mut self,
-        frequency: u32
-    ) {
-        unsafe { 
+    pub fn set_frequency(&mut self, frequency_mhz: u32) {
+        unsafe {
             if let Some(set_channel) = self.radio.c_handle.SetChannel {
-                set_channel(frequency);
+                set_channel(frequency_mhz);
             }
         };
     }
 
-    pub fn set_public_network(
-        &mut self,
-        enable: bool
-    ) {
-        unsafe { 
+    pub fn set_public_network(&mut self, enable: bool) {
+        unsafe {
             if let Some(set_public_network) = self.radio.c_handle.SetPublicNetwork {
                 set_public_network(enable);
             }
