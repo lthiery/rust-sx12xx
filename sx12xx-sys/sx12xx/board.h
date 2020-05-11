@@ -98,7 +98,6 @@ extern "C"
         void (*spi_nss)(bool sel);
         void (*reset)(bool enable);
         void (*delay_ms)(uint32_t);
-        uint32_t (*get_random_bits)(uint8_t);
         bool (*busy_pin_status)(); // only necessary for SX126x
         // the rest of these functions are optional for board control
         // if external PA, this callback allows you to reduce power

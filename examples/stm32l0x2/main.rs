@@ -1,4 +1,5 @@
 #![cfg_attr(not(test), no_std)]
+#![no_main]
 
 // To use example, press any key in serial terminal
 // Packet will send and "Transmit Done!" will print when radio is done sending packet
@@ -138,7 +139,7 @@ const APP: () = {
         *ctx.resources.count += 1;
 
         let sx12xx = ctx.resources.sx12xx;
-        sx12xx.set_lora_tx_config(
+        sx12xx.configure_lora_tx(
             22,
             LoRaBandwidth::_125KHZ,
             LoRaSpreadingFactor::_10,

@@ -35,6 +35,13 @@ extern "C"
         Sx12xxState_RxError = 0xFFFFFFFF // force 32-bit value,
     } Sx12xxState_t;
 
+
+    typedef struct Sx12xxRxMetadata_t {
+        uint16_t rx_len;
+        int16_t rssi;
+        int8_t snr;
+    } Sx12xxRxMetadata_t;
+
     typedef struct Sx12xx
     {
         void (*dio_irq_handles[NUM_IRQ_HANDLES])();
@@ -42,9 +49,9 @@ extern "C"
         Radio_t radio;
         RadioEvents_t radio_events;
         Sx12xxState_t state;
-        uint16_t rx_len;
-        int16_t rssi;
-        int8_t snr;
+        Sx12xxRxMetadata_t rx_metadata;
+        int8_t * rx_buffer;
+        int8_t rx_buffer_len;
     } Sx12xx_t;
 
     Sx12xx_t sx12xx_new_handle(void);
@@ -61,7 +68,16 @@ extern "C"
     Sx12xxState_t sx12xx_handle_event(Sx12xxEvent_t);
 
     void
-sx12xx_send(Radio_t * radio, const uint8_t * data, size_t len);
+    sx12xx_send(Radio_t * radio, const uint8_t * data, size_t len);
+
+    void 
+    sx12xx_set_rx_buffer(const uint8_t * buf, uint8_t len);
+
+    void 
+    sx12xx_take_rx_buffer();
+
+    Sx12xxRxMetadata_t 
+    sx12xx_get_rx_metadata();
 
 #ifdef __cplusplus
 }

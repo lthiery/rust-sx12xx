@@ -14,18 +14,19 @@ void OnRxTimeout(void);
 
 void OnRxError(void);
 
-
 void 
 sx12xx_init(Radio_t * radio, BoardBindings_t bindings)
 {
     sx12xx_handle.bindings = bindings;
-
     // configure sx12xx radio events with local functions
     sx12xx_handle.radio_events.TxDone    = OnTxDone;
     sx12xx_handle.radio_events.RxDone    = OnRxDone;
     sx12xx_handle.radio_events.TxTimeout = OnTxTimeout;
     sx12xx_handle.radio_events.RxTimeout = OnRxTimeout;
     sx12xx_handle.radio_events.RxError   = OnRxError;
+
+    // intialize rx buffer cleared
+    sx12xx_take_rx_buffer();
 
     // this function calls TimerInits and radio->IoIrqInit, which are
     // implemented here
@@ -34,6 +35,19 @@ sx12xx_init(Radio_t * radio, BoardBindings_t bindings)
     // sleep the radio and wait for a send or receive call
     radio->Sleep();
 }
+
+void 
+sx12xx_set_rx_buffer(const uint8_t * buf, uint8_t len){
+    sx12xx_handle.rx_buffer = buf;
+    sx12xx_handle.rx_buffer_len = len;
+}
+
+void 
+sx12xx_take_rx_buffer(){
+    sx12xx_handle.rx_buffer = NULL;
+    sx12xx_handle.rx_buffer_len = 0;
+}
+
 
 Sx12xxState_t
 sx12xx_handle_event(Sx12xxEvent_t event)
@@ -116,10 +130,25 @@ OnTxDone(void)
 void
 OnRxDone(uint8_t * payload, uint16_t size, int16_t rssi, int8_t snr)
 {
+    if(sx12xx_handle.rx_buffer != NULL){
+        for (uint8_t i=0; i < size; i++){
+            *(sx12xx_handle.rx_buffer+i) = *(payload+i);
+        }
+    }
     sx12xx_handle.state = Sx12xxState_RxDone;
-    sx12xx_handle.rx_len = size;
-    sx12xx_handle.rssi = rssi;
-    sx12xx_handle.snr  = snr;
+    sx12xx_handle.rx_metadata.rx_len = size;
+    sx12xx_handle.rx_metadata.rssi = rssi;
+    sx12xx_handle.rx_metadata.snr  = snr;
+}
+
+Sx12xxRxMetadata_t 
+sx12xx_get_rx_metadata() {
+    Sx12xxRxMetadata_t metadata  = {
+        .rx_len = sx12xx_handle.rx_metadata.rx_len,
+        .rssi = sx12xx_handle.rx_metadata.rssi,
+        .snr = sx12xx_handle.rx_metadata.snr,
+    };
+    return metadata;
 }
 
 void
