@@ -159,6 +159,10 @@ impl Sx12xx {
         &mut self.buffer
     }
 
+    pub fn clear_buffer(&mut self) {
+        self.buffer.clear()
+    }
+
     pub fn get_mut_buffer(&mut self) -> &mut Vec<u8, U256> {
         &mut self.buffer
     }
@@ -170,6 +174,7 @@ impl Sx12xx {
             }
         };
     }
+
     pub fn send(&mut self, buffer: &[u8]) {
         self.buffer.extend(buffer);
         self.send_buffer();
