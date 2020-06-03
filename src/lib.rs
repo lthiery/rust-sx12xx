@@ -160,7 +160,7 @@ impl Sx12xx {
         }
     }
 
-    pub fn get_rx(&mut self) -> &Vec<u8, U256> {
+    pub fn get_rx(&mut self) -> &mut Vec<u8, U256> {
         &mut self.rx_buffer
     }
 
