@@ -7,7 +7,7 @@ pub use sx12xx_sys::AntPinsMode_t as AntPinsMode;
 pub use sx12xx_sys::BoardBindings_t as BoardBindings;
 pub use sx12xx_sys::Sx12xxEvent_t as Event;
 use sx12xx_sys::Sx12xxState_t as Sx12xxState;
-use sx12xx_sys::Sx12xxRxMetadata_t as RxMetadata;
+pub use sx12xx_sys::Sx12xxRxMetadata_t as RxMetadata;
 
 pub struct RxQuality {
     rssi: i16,
@@ -63,7 +63,9 @@ struct Settings {
 pub struct Sx12xx {
     settings: Settings,
     radio: Radio,
-    buffer: Vec<u8, U256>,
+    // changing the size of the Vec here
+    // breaks many "safe" assumptions later
+    rx_buffer: Vec<u8, U256>,
 }
 
 impl Radio {
@@ -128,7 +130,7 @@ impl Sx12xx {
                 timeout: 5,
                 continuous_rx: true
             },
-            buffer: Vec::new(),
+            rx_buffer: Vec::new(),
         }
     }
 
@@ -138,12 +140,15 @@ impl Sx12xx {
         match sx12xx_state {
             Sx12xxState::Sx12xxState_Busy => State::Busy,
             Sx12xxState::Sx12xxState_TxDone =>  {
-                self.buffer.clear();
                 State::TxDone
             },
             Sx12xxState::Sx12xxState_RxDone => {
                 let metadata = unsafe { sx12xx_get_rx_metadata() };
-                self.buffer.resize(metadata.rx_len as usize, 0);
+                // buffer was resized to max size when given to the C library
+                // now we size it down to the size that was actually received
+                // we unwrap, because we metadata.rx_len is u8 and rx_buffer
+                // is Vec<U256>
+                self.rx_buffer.resize(metadata.rx_len as usize, 0).unwrap();
                 State::RxDone(RxQuality{
                     snr: metadata.snr,
                     rssi: metadata.rssi
@@ -155,29 +160,16 @@ impl Sx12xx {
         }
     }
 
-    pub fn get_buffer(&mut self) -> &Vec<u8, U256> {
-        &mut self.buffer
+    pub fn get_rx(&mut self) -> &Vec<u8, U256> {
+        &mut self.rx_buffer
     }
 
-    pub fn clear_buffer(&mut self) {
-        self.buffer.clear()
-    }
-
-    pub fn get_mut_buffer(&mut self) -> &mut Vec<u8, U256> {
-        &mut self.buffer
-    }
-
-    pub fn send_buffer(&mut self) {
+    pub fn send(&mut self, buffer: &mut [u8]) {
         unsafe {
             if let Some(send) = self.radio.c_handle.Send {
-                send(self.buffer.as_mut_ptr(), self.buffer.len() as u8);
+                send(buffer.as_mut_ptr(), buffer.len() as u8);
             }
         };
-    }
-
-    pub fn send(&mut self, buffer: &[u8]) {
-        self.buffer.extend(buffer);
-        self.send_buffer();
     }
 
     pub fn configure_fsk_tx(&mut self, power: i8, fdev: u32, datarate: u32) {
@@ -278,9 +270,11 @@ impl Sx12xx {
     ) {
 
         // we resize the buffer to max size allowing the C library to write to it
+        // we unwrap because 255 is the size of U256
+        self.rx_buffer.resize(255, 0).unwrap();
+
         unsafe {
-            self.buffer.resize(255, 0);
-            sx12xx_set_rx_buffer(self.buffer.as_mut_ptr(), 255);
+            sx12xx_set_rx_buffer(self.rx_buffer.as_mut_ptr(), 255);
         };
 
         unsafe {
