@@ -10,6 +10,7 @@ use sx12xx_sys::Sx12xxState_t as Sx12xxState;
 pub use sx12xx_sys::Sx12xxRxMetadata_t as RxMetadata;
 
 mod lorawan_device;
+mod state_machine;
 
 pub struct RxQuality {
     rssi: i16,
@@ -26,7 +27,7 @@ impl RxQuality {
     }
 }
 
-pub enum State {
+pub enum Response {
     Busy,
     TxDone(u32),
     RxDone(u32, RxQuality),
@@ -167,13 +168,13 @@ impl Sx12xx {
         }
     }
 
-    pub fn handle_event(&mut self, event: Event) -> State {
+    pub fn handle_event(&mut self, event: Event) -> Response {
         let sx12xx_state = unsafe { sx12xx_handle_event(event.clone().into()) };
         match sx12xx_state {
-            Sx12xxState::Sx12xxState_Busy => State::Busy,
+            Sx12xxState::Sx12xxState_Busy => Response::Busy,
             Sx12xxState::Sx12xxState_TxDone =>  {
                 if let Event::DIO0(t) = event {
-                    State::TxDone(t)
+                    Response::TxDone(t)
                 } else {
                     panic!("TxDone assumed to follow DIO0");
                 }
@@ -186,7 +187,7 @@ impl Sx12xx {
                     // we unwrap, because we metadata.rx_len is u8 and rx_buffer
                     // is Vec<U256>
                     self.rx_buffer.resize(metadata.rx_len as usize, 0).unwrap();
-                    State::RxDone(t, RxQuality{
+                    Response::RxDone(t, RxQuality{
                         snr: metadata.snr,
                         rssi: metadata.rssi
                     })
@@ -195,9 +196,9 @@ impl Sx12xx {
                 }
 
             },
-            Sx12xxState::Sx12xxState_TxTimeout => State::TxTimeout,
-            Sx12xxState::Sx12xxState_RxTimeout => State::RxTimeout,
-            Sx12xxState::Sx12xxState_RxError => State::RxError,
+            Sx12xxState::Sx12xxState_TxTimeout => Response::TxTimeout,
+            Sx12xxState::Sx12xxState_RxTimeout => Response::RxTimeout,
+            Sx12xxState::Sx12xxState_RxError => Response::RxError,
         }
     }
 
