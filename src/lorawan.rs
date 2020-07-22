@@ -198,7 +198,7 @@ impl lorawan_device::Timings for LorawanRadio {
         -500
     }
     fn get_rx_window_duration_ms(&self) -> u32 {
-        750
+        800
     }
 }
 

@@ -49,7 +49,7 @@ pub struct TimerContext {
     pub target: u16,
     pub count: u16,
     pub enable: bool,
-    pub fired: bool,
+    pub armed: bool,
 }
 
 #[app(device = stm32l0xx_hal::pac, peripherals = true)]
@@ -62,8 +62,6 @@ const APP: () = {
         timer: Timer<pac::TIM2>,
         #[init([0;512])]
         buffer: [u8; 512],
-        #[init(0)]
-        count: u8,
         #[init(false)]
         ready_to_send: bool,
         lorawan: Option<LorawanDevice<LorawanRadio, Crypto>>,
@@ -71,7 +69,7 @@ const APP: () = {
         target: 0,
         count: 0,
         enable: false,
-        fired: false,
+        armed: false,
         })]
         timer_context: TimerContext,
     }
@@ -155,6 +153,11 @@ const APP: () = {
     #[task(capacity = 4, priority = 2, resources = [debug_uart, buffer, lorawan], spawn  = [lorawan_response])]
     fn lorawan_event(ctx: lorawan_event::Context, event: LorawanEvent<'static, LorawanRadio>) {
         let debug = ctx.resources.debug_uart;
+
+        // The LoraWAN stack is a giant state machine which needs
+        // to mutate internally
+        // We let that happen within RTFM's framework for shared statics
+        // by using an Option cell that we can take() from
         if let Some(lorawan) = ctx.resources.lorawan.take() {
             // debug statements for the event
             match &event {
@@ -166,10 +169,14 @@ const APP: () = {
                     radio::Event::RxRequest(_) => (),
                     radio::Event::CancelRx => (),
                     radio::Event::PhyEvent(phy) => {
-                        write!(debug, "RadioPhy ").unwrap();
                         let event = phy as &sx12xx::Event;
                         match event {
-                            sx12xx::Event::DIO0(t) => write!(debug, "DIO0({})\r\n", t).unwrap(),
+                            // The timing of DIO0 marks:
+                            //          * when a packet was done being sent
+                            //          * or when a packet was received
+                            // Since every RxWindow is some amount of time after end of tx,
+                            // we reset the timer to 0 on every transmit
+                            sx12xx::Event::DIO0(t) => write!(debug, "Radio Rx/Tx (DIO0) Interrupt at {} ms\r\n", t).unwrap(),
                             _ => write!(debug, "\r\n").unwrap(),
                         }
                     }
@@ -181,21 +188,24 @@ const APP: () = {
             }
             let (new_state, response) = lorawan.handle_event(event);
             ctx.spawn.lorawan_response(response);
+
+            // placing back into the Option cell after taking is critical
             *ctx.resources.lorawan = Some(new_state);
         }
     }
 
-    #[task(capacity = 4, priority = 2, resources = [debug_uart, timer_context, lorawan])]
-    fn lorawan_response(ctx: lorawan_response::Context, response: Result<LorawanResponse, LorawanError<LorawanRadio>>) {
+    #[task(capacity = 4, priority = 2, resources = [debug_uart, timer_context, lorawan], spawn = [lorawan_event])]
+    fn lorawan_response(mut ctx: lorawan_response::Context, response: Result<LorawanResponse, LorawanError<LorawanRadio>>) {
         let debug = ctx.resources.debug_uart;
 
         match response {
             Ok(response) => {
                 match response {
                     LorawanResponse::TimeoutRequest(ms) => {
-                        let timer_context = ctx.resources.timer_context;
-                        timer_context.target = ms as u16;
-                        timer_context.fired = false;
+                        ctx.resources.timer_context.lock(|context| {
+                            context.target = ms as u16;
+                            context.armed = true;
+                        });
                     }
                     LorawanResponse::NewSession => {
                         if let Some(mut lorawan) = ctx.resources.lorawan.take() {
@@ -208,43 +218,88 @@ const APP: () = {
 
                             *ctx.resources.lorawan = Some(lorawan);
                         }
-                        let timer_context = ctx.resources.timer_context;
-                        timer_context.enable = false;
+                        ctx.resources.timer_context.lock(|context| {
+                            context.enable = false;
+                        });
                     }
                     LorawanResponse::ReadyToSend => {
-                        write!(debug, "ReadyToSend\r\n").unwrap();
-                        let timer_context = ctx.resources.timer_context;
-                        timer_context.enable = false;
+                        write!(debug, "RxWindow expired but no ACK expected. Ready to Send\r\n").unwrap();
+                        ctx.resources.timer_context.lock(|context| {
+                            context.enable = false;
+                        });
                     }
-                    _ => {
-                        if let LorawanResponse::WaitingForJoinAccept = response {}
-                        write!(debug, "Response: {:?}\r\n", response).unwrap();
+                    LorawanResponse::DataDown(fcnt_down) => {
+                        write!(debug, "Downlink with FCnt {}\r\n", fcnt_down).unwrap();
+                    }
+                    LorawanResponse::NoAck=> {
+                        write!(debug, "RxWindow expired, expected ACK to confirmed uplink not received\r\n").unwrap();
+                    }
+                    LorawanResponse::NoJoinAccept => {
+                        write!(debug, "No Join Accept Received\r\n").unwrap();
+                        ctx.spawn.lorawan_event(LorawanEvent::NewSession).unwrap();
+                    }
+                    LorawanResponse::Idle => (),
+                    LorawanResponse::Rxing => {
+                        write!(debug, "Rxing\r\n").unwrap();
+                    },
+                    LorawanResponse::WaitingForDataDown => {
+                        write!(debug, "Downlink Window Open\r\n").unwrap();
+                    }
+                    LorawanResponse::SendingDataUp(fcnt_up) => {
+                        write!(debug, "Uplink with FCnt {}\r\n", fcnt_up).unwrap();
+                    }
+                    LorawanResponse::SendingJoinRequest => {
+                        write!(debug, "Sending Join Request\r\n").unwrap();
+                    }
+                    LorawanResponse::WaitingForJoinAccept => {
+                        write!(debug, "Waiting For Join Accept\r\n").unwrap();
                     }
                 }
             }
             Err(err) => match err {
                 LorawanError::Radio(_) => write!(debug, "Radio \r\n").unwrap(),
-                LorawanError::Session(_) => write!(debug, "Session \r\n").unwrap(),
+                LorawanError::Session(e) => write!(debug, "Session {:?}\r\n", e).unwrap(),
                 LorawanError::NoSession(_) => write!(debug, "NoSession\r\n").unwrap(),
             },
         }
     }
 
-    #[task(capacity = 4, priority = 2, resources = [debug_uart, count, lorawan])]
+    #[task(capacity = 4, priority = 2, resources = [debug_uart, lorawan], spawn = [lorawan_response])]
     fn send_ping(ctx: send_ping::Context) {
+        static mut COUNT: usize = 0;
+        // The LoraWAN stack is a giant state machine which needs
+        // to mutate internally
+        // We let that happen within RTFM's framework for shared statics
+        // by using an Option cell that we can take() from
         if let Some(lorawan) = ctx.resources.lorawan.take() {
             let debug = ctx.resources.debug_uart;
 
-            if lorawan.ready_to_send_data() {
-                write!(debug, "Sending Ping\r\n").unwrap();
-                *ctx.resources.count += 1;
+            let ready_to_send = lorawan.ready_to_send_data();
 
-                let data: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, *ctx.resources.count];
-                let (new_state, response) = lorawan.send(&data, 1, false);
-                *ctx.resources.lorawan = Some(new_state);
-            } else {
-                write!(debug, "Suppressing Send Request\r\n").unwrap();
-            }
+            // placing back into the Option cell after take() is critical
+            *ctx.resources.lorawan = Some (
+                if ready_to_send {
+                    *COUNT += 1;
+                    let data: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, *COUNT as u8];
+
+                    // requested confirmed packet every 4 packets
+                    let confirmed = if (*COUNT) % 4 == 0 {
+                        write!(debug, "Requesting Confirmed Uplink\r\n").unwrap();
+                        true
+                    } else {
+                        write!(debug, "Requesting Unconfirmed Uplink\r\n").unwrap();
+                        false
+                    };
+                    let (new_state, response) = lorawan.send(&data, 1, confirmed);
+                    ctx.spawn.lorawan_response(response);
+                    new_state
+
+                } else {
+                    write!(debug, "Suppressing Send Request\r\n").unwrap();
+                    lorawan
+                }
+            );
+
         }
     }
 
@@ -257,21 +312,22 @@ const APP: () = {
         ctx.spawn.send_ping().unwrap();
     }
 
-    #[task(binds = EXTI4_15, priority = 1, resources = [radio_irq, int, timer_context], spawn = [lorawan_event])]
-    fn EXTI4_15(mut ctx: EXTI4_15::Context) {
+    #[task(binds = EXTI4_15, priority = 3, resources = [radio_irq, int, timer_context], spawn = [lorawan_event])]
+    fn EXTI4_15(ctx: EXTI4_15::Context) {
         Exti::unpend(GpioLine::from_raw_line(ctx.resources.radio_irq.pin_number()).unwrap());
+        let context = ctx.resources.timer_context;
         let mut count = 0;
+
         // grab a lock on timer and start new
-        ctx.resources.timer_context.lock(|context| {
-            if context.enable {
-                count = context.count as u32;
-                context.enable = false;
-            } else {
-                context.target = 0xFFFF as u16;
-                context.count = 0;
-                context.enable = true;
-            }
-        });
+        if context.enable {
+            count = context.count as u32;
+            context.enable = false;
+        } else {
+            context.target = 0xFFFF as u16;
+            context.count = 0;
+            context.enable = true;
+        }
+
         rtfm::pend(Interrupt::TIM2);
 
         ctx.spawn
@@ -283,34 +339,42 @@ const APP: () = {
 
     // This is a pretty not scalable timeout implementation
     // but we can switch to RTFM timer queues later maybe
-    #[task(binds = TIM2, priority = 1, resources = [timer, timer_context], spawn = [lorawan_event])]
-    fn TIM2(mut ctx: TIM2::Context) {
+    #[task(binds = TIM2, priority = 3, resources = [timer, timer_context], spawn = [lorawan_event])]
+    fn TIM2(ctx: TIM2::Context) {
+        let context = ctx.resources.timer_context;
         let timer = ctx.resources.timer;
         let spawn = ctx.spawn;
         timer.clear_irq();
 
-        ctx.resources.timer_context.lock(|context| {
-            // if timer has been disabled,
-            // timeout has been disarmed
-            if !context.enable {
-                context.target = 0;
-                context.count = 0;
-                timer.unlisten();
-            } else {
-                // if count is 0, we are just setting up a timeout
-                if context.count == 0 {
-                    timer.reset();
-                    timer.listen();
-                }
-                context.count += 1;
 
-                // if we have a match, timer has fired
-                if context.count >= context.target && !context.fired {
-                    spawn.lorawan_event(LorawanEvent::Timeout).unwrap();
-                    context.fired = true;
-                }
+        // If timer has been disabled, another task
+        // is asking to disarm the timer
+        if !context.enable {
+            context.target = 0;
+            context.count = 0;
+            context.armed = true;
+            // Disable this interrupt from firing on ticks
+            timer.unlisten();
+        } else {
+            // If count is 0, this vector fired because it
+            // was spawned by another task
+            // This means someone wants to start the timer
+            if context.count == 0 {
+                // Resets the underlying hardware timer
+                // to avoid fractional ticks underway
+                timer.reset();
+                // Enables this interrupt to fire on ticks
+                timer.listen();
             }
-        });
+            context.count += 1;
+
+            // if we have a match and timer is still armed to fire
+            if context.count >= context.target && context.armed {
+                spawn.lorawan_event(LorawanEvent::Timeout).unwrap();
+                context.armed = false;
+            }
+        }
+
     }
 
     // Interrupt handlers used to dispatch software tasks
