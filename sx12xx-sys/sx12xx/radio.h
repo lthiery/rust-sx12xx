@@ -48,7 +48,8 @@ typedef enum
     RF_IDLE = 0,   //!< The radio is idle
     RF_RX_RUNNING, //!< The radio is in reception state
     RF_TX_RUNNING, //!< The radio is in transmission state
-    RF_CAD,        //!< The radio is doing channel activity detection
+    RF_CAD,
+    RF_max = 0xFFFFFFFF //!< The radio is doing channel activity detection
 }RadioState_t;
 
 /*!

@@ -16,7 +16,8 @@ description = "Rust Wrapper SX12xx"
 sx12xx-sys = {path = "./sx12xx-sys", version = "0.1.0"}
 libm = "0.1.4"
 heapless = "0.5.4"
-
+lorawan-crypto = {path = "../lorawan_crypto" }
+as-slice = "*"
 [dependencies.lorawan-device]
 path                   = "../rust-lorawan/device"
 
@@ -39,6 +40,8 @@ cast = { version = "0.2.2", default-features = false }
 panic-ramdump = "0.1.1"
 embedded-hal = { version = "0.2.3", features = ["unproven"] }
 nb = "0.1.2"
+lorawan-encoding = { path = "../rust-lorawan/encoding", default-features = false, features = ["default-crypto"] }
+
 
 [dev-dependencies.stm32l0xx-hal]
 git                    = "https://github.com/stm32-rs/stm32l0xx-hal.git"

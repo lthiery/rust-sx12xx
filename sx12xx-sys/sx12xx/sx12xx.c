@@ -25,9 +25,6 @@ sx12xx_init(Radio_t * radio, BoardBindings_t bindings)
     sx12xx_handle.radio_events.RxTimeout = OnRxTimeout;
     sx12xx_handle.radio_events.RxError   = OnRxError;
 
-    // intialize rx buffer cleared
-    sx12xx_take_rx_buffer();
-
     // this function calls TimerInits and radio->IoIrqInit, which are
     // implemented here
     radio->Init(&sx12xx_handle.radio_events);
@@ -36,17 +33,6 @@ sx12xx_init(Radio_t * radio, BoardBindings_t bindings)
     radio->Sleep();
 }
 
-void 
-sx12xx_set_rx_buffer(const uint8_t * buf, uint8_t len){
-    sx12xx_handle.rx_buffer = buf;
-    sx12xx_handle.rx_buffer_len = len;
-}
-
-void 
-sx12xx_take_rx_buffer(){
-    sx12xx_handle.rx_buffer = NULL;
-    sx12xx_handle.rx_buffer_len = 0;
-}
 
 
 Sx12xxState_t
@@ -103,38 +89,20 @@ IoIrqInit(IrqHandler * irq_handlers[NUM_IRQ_HANDLES])
     }
 }
 
-#define TX_OUTPUT_POWER 22 // dBm
-
-#define LORA_BANDWIDTH                                                         \
-    0                              // [0: 125 kHz,
-                                   //  1: 250 kHz,
-                                   //  2: 500 kHz,
-                                   //  3: Reserved]
-#define LORA_SPREADING_FACTOR (10) // [SF7..SF12]
-#define LORA_CODINGRATE                                                        \
-    (1)                          // [1: 4/5,
-                                 //  2: 4/6,
-                                 //  3: 4/7,
-                                 //  4: 4/8]
-#define LORA_PREAMBLE_LENGTH (8) // Same for Tx and Rx
-#define LORA_SYMBOL_TIMEOUT (5)  // Symbols
-#define LORA_FIX_LENGTH_PAYLOAD_ON (false)
-#define LORA_IQ_INVERSION_ON (false)
-
 void
 OnTxDone(void)
 {
     sx12xx_handle.state = Sx12xxState_TxDone;
 }
 
+uint8_t * sx12xx_get_raw_buffer() {
+    return sx12xx_handle.raw_buffer;
+}
+
 void
 OnRxDone(uint8_t * payload, uint16_t size, int16_t rssi, int8_t snr)
 {
-    if(sx12xx_handle.rx_buffer != NULL){
-        for (uint8_t i=0; i < size; i++){
-            *(sx12xx_handle.rx_buffer+i) = *(payload+i);
-        }
-    }
+    sx12xx_handle.raw_buffer = payload;
     sx12xx_handle.state = Sx12xxState_RxDone;
     sx12xx_handle.rx_metadata.rx_len = size;
     sx12xx_handle.rx_metadata.rssi = rssi;

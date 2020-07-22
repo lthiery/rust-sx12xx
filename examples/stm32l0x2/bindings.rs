@@ -159,10 +159,10 @@ pub struct AntennaSwitches<Rx, TxRfo, TxBoost> {
 }
 #[warn(unused_must_use)]
 impl<Rx, TxRfo, TxBoost> AntennaSwitches<Rx, TxRfo, TxBoost>
-    where
-        Rx: embedded_hal::digital::v2::OutputPin,
-        TxRfo: embedded_hal::digital::v2::OutputPin,
-        TxBoost: embedded_hal::digital::v2::OutputPin,
+where
+    Rx: embedded_hal::digital::v2::OutputPin,
+    TxRfo: embedded_hal::digital::v2::OutputPin,
+    TxBoost: embedded_hal::digital::v2::OutputPin,
 {
     pub fn new(rx: Rx, tx_rfo: TxRfo, tx_boost: TxBoost) -> AntennaSwitches<Rx, TxRfo, TxBoost> {
         AntennaSwitches {

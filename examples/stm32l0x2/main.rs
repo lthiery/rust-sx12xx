@@ -8,16 +8,19 @@ extern crate nb;
 extern crate panic_ramdump;
 
 use core::fmt::Write;
-use lorawan_device::{Device as LoRaWanDevice, Event as LoRaWanEvent, Response as LoRaWanResponse, radio};
+use lorawan_crypto::LorawanCrypto as Crypto;
+use lorawan_device::{
+    radio, Device as LorawanDevice, Error as LorawanError, Event as LorawanEvent,
+    Response as LorawanResponse,
+};
 use rtfm::app;
 use stm32l0xx_hal::exti::{ExtiLine, GpioLine};
-use stm32l0xx_hal::{pac, pac::Interrupt, rng, serial};
-//use stm32l0xx_hal::serial::USART1 as DebugUsart;
-//use stm32l0xx_hal::serial::Serial1Ext;
-use stm32l0xx_hal::serial::USART2 as DebugUsart;
+use stm32l0xx_hal::serial::Serial1Ext;
+use stm32l0xx_hal::serial::USART1 as DebugUsart;
 use stm32l0xx_hal::{exti::Exti, prelude::*, rcc, rng::Rng, syscfg, timer::Timer};
+use stm32l0xx_hal::{pac, pac::Interrupt, rng, serial};
 use sx12xx;
-use sx12xx::Sx12xx;
+use sx12xx::{LorawanRadio, Sx12xx};
 mod bindings;
 pub use bindings::initialize_irq as initialize_radio_irq;
 pub use bindings::RadioIRQ;
@@ -61,8 +64,9 @@ const APP: () = {
         buffer: [u8; 512],
         #[init(0)]
         count: u8,
-        sx12xx: Sx12xx,
-        lorawan: Option<LoRaWanDevice<Sx12xx>>,
+        #[init(false)]
+        ready_to_send: bool,
+        lorawan: Option<LorawanDevice<LorawanRadio, Crypto>>,
         #[init(TimerContext {
         target: 0,
         count: 0,
@@ -81,7 +85,8 @@ const APP: () = {
         let gpiob = device.GPIOB.split(&mut rcc);
         let gpioc = device.GPIOC.split(&mut rcc);
 
-        let (tx_pin, rx_pin, serial_peripheral) = (gpioa.pa2, gpioa.pa3, device.USART2);
+        let (tx_pin, rx_pin, serial_peripheral) = (gpioa.pa9, gpioa.pa10, device.USART1);
+        //let (tx_pin, rx_pin, serial_peripheral) = (gpioa.pa2, gpioa.pa3, device.USART2);
 
         let mut serial = serial_peripheral
             .usart(tx_pin, rx_pin, serial::Config::default(), &mut rcc)
@@ -115,22 +120,24 @@ const APP: () = {
             gpioa.pa1,
             gpioc.pc2,
             gpioc.pc1,
-            None, //Some(gpioa.pa8), //use pa8 for catena
+            Some(gpioa.pa8), // None //use pa8 for catena
         );
 
         let mut sx12xx = Sx12xx::new(sx12xx::Radio::sx1276(), bindings);
         sx12xx.set_public_network(true);
 
-        let lorawan = LoRaWanDevice::new(
+        let lorawan = LorawanDevice::new(
+            LorawanRadio::new(sx12xx),
             [0x55, 0x6C, 0xB6, 0x1E, 0x37, 0xC5, 0x3C, 0x00],
             [0xB9, 0x94, 0x02, 0xD0, 0x7E, 0xD5, 0xB3, 0x70],
             [
-                0xBF, 0x40, 0xD3, 0x0E, 0x4E, 0x23, 0x42, 0x8E, 0xF6, 0x82, 0xCA, 0x77, 0x64, 0xCD, 0xB4, 0x23
+                0xBF, 0x40, 0xD3, 0x0E, 0x4E, 0x23, 0x42, 0x8E, 0xF6, 0x82, 0xCA, 0x77, 0x64, 0xCD,
+                0xB4, 0x23,
             ],
             get_random_u32,
         );
 
-        ctx.spawn.lorawan_event(LoRaWanEvent::NewSession);
+        ctx.spawn.lorawan_event(LorawanEvent::NewSession).unwrap();
 
         write!(tx, "Going to main loop\r\n").unwrap();
 
@@ -140,92 +147,111 @@ const APP: () = {
             radio_irq,
             debug_uart: tx,
             uart_rx: rx,
-            sx12xx,
             lorawan: Some(lorawan),
             timer,
         }
     }
 
-    #[task(capacity = 4, priority = 2, resources = [debug_uart, buffer, sx12xx, lorawan], spawn  = [lorawan_response])]
-    fn lorawan_event(ctx: lorawan_event::Context, event: LoRaWanEvent<'static, Sx12xx>) {
+    #[task(capacity = 4, priority = 2, resources = [debug_uart, buffer, lorawan], spawn  = [lorawan_response])]
+    fn lorawan_event(ctx: lorawan_event::Context, event: LorawanEvent<'static, LorawanRadio>) {
         let debug = ctx.resources.debug_uart;
-
         if let Some(lorawan) = ctx.resources.lorawan.take() {
+            // debug statements for the event
             match &event {
-                LoRaWanEvent::NewSession => {
-                    write!(debug, "NewSession \r\n").unwrap();
+                LorawanEvent::NewSession => {
+                    write!(debug, "New Session Request \r\n").unwrap();
                 }
-                LoRaWanEvent::RadioEvent(e) => {
-                    match e {
-                        radio::Event::TxRequest(_, _) => (),
-                        radio::Event::RxRequest(_) => (),
-                        radio::Event::CancelRx=> (),
-                        radio::Event::PhyEvent(phy) => {
-                            write!(debug, "RadioPhy ").unwrap();
-                            let event = phy as &sx12xx::Event;
-                            match event {
-                                sx12xx::Event::DIO0(t) => write!(debug, "DIO0({})\r\n", t).unwrap(),
-                                _  => write!(debug, "\r\n").unwrap(),
-                            }
+                LorawanEvent::RadioEvent(e) => match e {
+                    radio::Event::TxRequest(_, _) => (),
+                    radio::Event::RxRequest(_) => (),
+                    radio::Event::CancelRx => (),
+                    radio::Event::PhyEvent(phy) => {
+                        write!(debug, "RadioPhy ").unwrap();
+                        let event = phy as &sx12xx::Event;
+                        match event {
+                            sx12xx::Event::DIO0(t) => write!(debug, "DIO0({})\r\n", t).unwrap(),
+                            _ => write!(debug, "\r\n").unwrap(),
                         }
-                        _ => (),
                     }
-                }
-                LoRaWanEvent::Timeout => {
-                    write!(debug, "Timeout \r\n").unwrap();
-                }
-                LoRaWanEvent::SendData(e) => {
+                },
+                LorawanEvent::Timeout => (),
+                LorawanEvent::SendData(_e) => {
                     write!(debug, "SendData \r\n").unwrap();
                 }
             }
-            let mut sx12xx = ctx.resources.sx12xx;
-            let (new_state, response) = lorawan.handle_event(&mut sx12xx, event);
-            if let Ok(response) = response {
-                ctx.spawn.lorawan_response(response);
-            }
+            let (new_state, response) = lorawan.handle_event(event);
+            ctx.spawn.lorawan_response(response);
             *ctx.resources.lorawan = Some(new_state);
         }
-
     }
 
-    #[task(capacity = 4, priority = 2, resources = [debug_uart, timer_context])]
-    fn lorawan_response(ctx: lorawan_response::Context, response: LoRaWanResponse) {
+    #[task(capacity = 4, priority = 2, resources = [debug_uart, timer_context, lorawan])]
+    fn lorawan_response(ctx: lorawan_response::Context, response: Result<LorawanResponse, LorawanError<LorawanRadio>>) {
+        let debug = ctx.resources.debug_uart;
+
         match response {
-            LoRaWanResponse::TimeoutRequest(ms) => {
-                let timer_context = ctx.resources.timer_context;
-                // write!(ctx.resources.debug_uart, "Timer at {:}\r\n", timer_context.count).unwrap();
-                // write!(ctx.resources.debug_uart, "Timer is enabled {:}\r\n", timer_context.enable).unwrap();
-                //
-                // write!(ctx.resources.debug_uart, "Setting Timer {:}\r\n", ms).unwrap();
-                timer_context.target = ms as u16;
+            Ok(response) => {
+                match response {
+                    LorawanResponse::TimeoutRequest(ms) => {
+                        let timer_context = ctx.resources.timer_context;
+                        timer_context.target = ms as u16;
+                        timer_context.fired = false;
+                    }
+                    LorawanResponse::NewSession => {
+                        if let Some(mut lorawan) = ctx.resources.lorawan.take() {
+                            write!(
+                                debug,
+                                "NewSession: {:?}\r\n",
+                                lorawan.get_session_keys().unwrap()
+                            )
+                                .unwrap();
+
+                            *ctx.resources.lorawan = Some(lorawan);
+                        }
+                        let timer_context = ctx.resources.timer_context;
+                        timer_context.enable = false;
+                    }
+                    LorawanResponse::ReadyToSend => {
+                        write!(debug, "ReadyToSend\r\n").unwrap();
+                        let timer_context = ctx.resources.timer_context;
+                        timer_context.enable = false;
+                    }
+                    _ => {
+                        if let LorawanResponse::WaitingForJoinAccept = response {}
+                        write!(debug, "Response: {:?}\r\n", response).unwrap();
+                    }
+                }
             }
-            _ => {
-                write!(ctx.resources.debug_uart, "{:?}\r\n", response).unwrap();
-            }
+            Err(err) => match err {
+                LorawanError::Radio(_) => write!(debug, "Radio \r\n").unwrap(),
+                LorawanError::Session(_) => write!(debug, "Session \r\n").unwrap(),
+                LorawanError::NoSession(_) => write!(debug, "NoSession\r\n").unwrap(),
+            },
         }
     }
 
-    #[task(capacity = 4, priority = 2, resources = [debug_uart, count, sx12xx, lorawan])]
+    #[task(capacity = 4, priority = 2, resources = [debug_uart, count, lorawan])]
     fn send_ping(ctx: send_ping::Context) {
-        {
-            let sx12xx = ctx.resources.sx12xx;
-            if let Some(lorawan) = ctx.resources.lorawan.take() {
-                let debug = ctx.resources.debug_uart;
-                write!(debug, "Sending Ping\r\n").unwrap();
+        if let Some(lorawan) = ctx.resources.lorawan.take() {
+            let debug = ctx.resources.debug_uart;
 
-                let data: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, *ctx.resources.count];
+            if lorawan.ready_to_send_data() {
+                write!(debug, "Sending Ping\r\n").unwrap();
                 *ctx.resources.count += 1;
 
-                let (new_state, response) = lorawan.send(sx12xx, &data, 1, false);
+                let data: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, *ctx.resources.count];
+                let (new_state, response) = lorawan.send(&data, 1, false);
                 *ctx.resources.lorawan = Some(new_state);
+            } else {
+                write!(debug, "Suppressing Send Request\r\n").unwrap();
             }
         }
     }
 
-    #[task(binds = USART2, priority=2, resources = [uart_rx], spawn = [send_ping])]
-    fn USART2(ctx: USART2::Context) {
-        // #[task(binds = USART1, priority=1, resources = [uart_rx], spawn = [send_ping])]
-        // fn USART1(ctx: USART1::Context) {
+    //#[task(binds = USART2, priority=2, resources = [uart_rx], spawn = [send_ping])]
+    //fn USART2(ctx: USART2::Context) {
+    #[task(binds = USART1, priority=1, resources = [uart_rx], spawn = [send_ping])]
+    fn USART1(ctx: USART1::Context) {
         let rx = ctx.resources.uart_rx;
         rx.read().unwrap();
         ctx.spawn.send_ping().unwrap();
@@ -245,15 +271,14 @@ const APP: () = {
                 context.count = 0;
                 context.enable = true;
             }
-        }
-        );
+        });
         rtfm::pend(Interrupt::TIM2);
 
-
         ctx.spawn
-            .lorawan_event(lorawan_device::Event::RadioEvent(lorawan_device::radio::Event::PhyEvent(
-                sx12xx::Event::DIO0(count))));
-
+            .lorawan_event(lorawan_device::Event::RadioEvent(
+                lorawan_device::radio::Event::PhyEvent(sx12xx::Event::DIO0(count)),
+            ))
+            .unwrap();
     }
 
     // This is a pretty not scalable timeout implementation
@@ -266,7 +291,7 @@ const APP: () = {
 
         ctx.resources.timer_context.lock(|context| {
             // if timer has been disabled,
-            // timeout has been dismarmed
+            // timeout has been disarmed
             if !context.enable {
                 context.target = 0;
                 context.count = 0;
@@ -281,7 +306,7 @@ const APP: () = {
 
                 // if we have a match, timer has fired
                 if context.count >= context.target && !context.fired {
-                    spawn.lorawan_event(LoRaWanEvent::Timeout);
+                    spawn.lorawan_event(LorawanEvent::Timeout).unwrap();
                     context.fired = true;
                 }
             }

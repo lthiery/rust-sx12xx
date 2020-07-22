@@ -52,6 +52,7 @@ extern "C"
         Sx12xxRxMetadata_t rx_metadata;
         int8_t * rx_buffer;
         int8_t rx_buffer_len;
+        int8_t * raw_buffer;
     } Sx12xx_t;
 
     Sx12xx_t sx12xx_new_handle(void);
@@ -61,7 +62,10 @@ extern "C"
      */
     void sx12xx_init(Radio_t *, BoardBindings_t);
 
-    /*!
+    uint8_t * sx12xx_get_raw_buffer();
+
+
+/*!
      * \brief To be used by client in a low-priorty loop, feeding events into the library
      *
      */
@@ -71,7 +75,7 @@ extern "C"
     sx12xx_send(Radio_t * radio, const uint8_t * data, size_t len);
 
     void 
-    sx12xx_set_rx_buffer(const uint8_t * buf, uint8_t len);
+    sx12xx_set_rx_buffer(uint8_t * buf, uint8_t len);
 
     void 
     sx12xx_take_rx_buffer();

@@ -3,7 +3,6 @@
 
 extern Sx12xx_t sx12xx_handle;
 
-
 void
 DelayMs(uint32_t ms)
 {
@@ -16,7 +15,7 @@ Delay(float s)
     DelayMs(s * 1000.0f);
 }
 
-void
+__attribute__((weak)) void
 memcpy1(uint8_t * dst, const uint8_t * src, uint16_t size)
 {
     memcpy(dst, src, size);
@@ -25,9 +24,7 @@ memcpy1(uint8_t * dst, const uint8_t * src, uint16_t size)
 uint16_t
 SpiInOut(LF_Spi_t * obj, uint16_t outData)
 {
-    uint16_t ret = 0;
-    ret |= (*sx12xx_handle.bindings.spi_in_out)((uint8_t)outData);
-
+    uint16_t ret = (*sx12xx_handle.bindings.spi_in_out)((uint8_t)outData);
     return ret;
 }
 
