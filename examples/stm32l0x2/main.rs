@@ -135,7 +135,7 @@ const APP: () = {
             get_random_u32,
         );
 
-        ctx.spawn.lorawan_event(LorawanEvent::NewSession).unwrap();
+        ctx.spawn.lorawan_event(LorawanEvent::NewSessionRequest).unwrap();
 
         write!(tx, "Going to main loop\r\n").unwrap();
 
@@ -161,7 +161,7 @@ const APP: () = {
         if let Some(lorawan) = ctx.resources.lorawan.take() {
             // debug statements for the event
             match &event {
-                LorawanEvent::NewSession => {
+                LorawanEvent::NewSessionRequest => {
                     write!(debug, "New Session Request \r\n").unwrap();
                 }
                 LorawanEvent::RadioEvent(e) => match e {
@@ -184,8 +184,8 @@ const APP: () = {
                         }
                     }
                 },
-                LorawanEvent::Timeout => (),
-                LorawanEvent::SendData(_e) => {
+                LorawanEvent::TimeoutFired => (),
+                LorawanEvent::SendDataRequest(_e) => {
                     write!(debug, "SendData \r\n").unwrap();
                 }
             }
@@ -249,7 +249,7 @@ const APP: () = {
                 }
                 LorawanResponse::NoJoinAccept => {
                     write!(debug, "No Join Accept Received\r\n").unwrap();
-                    ctx.spawn.lorawan_event(LorawanEvent::NewSession).unwrap();
+                    ctx.spawn.lorawan_event(LorawanEvent::NewSessionRequest).unwrap();
                 }
                 LorawanResponse::NoUpdate => (),
                 LorawanResponse::UplinkSending(fcnt_up) => {
@@ -371,7 +371,7 @@ const APP: () = {
 
             // if we have a match and timer is still armed to fire
             if context.count >= context.target && context.armed {
-                spawn.lorawan_event(LorawanEvent::Timeout).unwrap();
+                spawn.lorawan_event(LorawanEvent::TimeoutFired).unwrap();
                 context.armed = false;
             }
         }

@@ -16,10 +16,15 @@ description = "Rust Wrapper SX12xx"
 sx12xx-sys = {path = "./sx12xx-sys", version = "0.1.0"}
 libm = "0.1.4"
 heapless = "0.5.4"
-lorawan-crypto = { git = "https://github.com/lthiery/rust-lorawan-crypto.git" }
 as-slice = "*"
 [dependencies.lorawan-device]
 git = "https://github.com/helium/rust-lorawan.git"
+# path = "../rust-lorawan/device"
+[dependencies.lorawan-crypto]
+git = "https://github.com/lthiery/rust-lorawan-crypto.git"
+# path = "../rust-lorawan-crypto"
+
+
 
 [profile.dev]
 opt-level = "s"
