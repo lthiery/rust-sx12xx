@@ -176,7 +176,10 @@ const APP: () = {
                             //          * or when a packet was received
                             // Since every RxWindow is some amount of time after end of tx,
                             // we reset the timer to 0 on every transmit
-                            sx12xx::Event::DIO0(t) => write!(debug, "Radio Rx/Tx (DIO0) Interrupt at {} ms\r\n", t).unwrap(),
+                            sx12xx::Event::DIO0(t) => {
+                                write!(debug, "Radio Rx/Tx (DIO0) Interrupt at {} ms\r\n", t)
+                                    .unwrap()
+                            }
                             _ => write!(debug, "\r\n").unwrap(),
                         }
                     }
@@ -187,7 +190,7 @@ const APP: () = {
                 }
             }
             let (new_state, response) = lorawan.handle_event(event);
-            ctx.spawn.lorawan_response(response);
+            ctx.spawn.lorawan_response(response).unwrap();
 
             // placing back into the Option cell after taking is critical
             *ctx.resources.lorawan = Some(new_state);
@@ -195,67 +198,67 @@ const APP: () = {
     }
 
     #[task(capacity = 4, priority = 2, resources = [debug_uart, timer_context, lorawan], spawn = [lorawan_event])]
-    fn lorawan_response(mut ctx: lorawan_response::Context, response: Result<LorawanResponse, LorawanError<LorawanRadio>>) {
+    fn lorawan_response(
+        mut ctx: lorawan_response::Context,
+        response: Result<LorawanResponse, LorawanError<LorawanRadio>>,
+    ) {
         let debug = ctx.resources.debug_uart;
 
         match response {
-            Ok(response) => {
-                match response {
-                    LorawanResponse::TimeoutRequest(ms) => {
-                        ctx.resources.timer_context.lock(|context| {
-                            context.target = ms as u16;
-                            context.armed = true;
-                        });
-                    }
-                    LorawanResponse::NewSession => {
-                        if let Some(mut lorawan) = ctx.resources.lorawan.take() {
-                            write!(
-                                debug,
-                                "NewSession: {:?}\r\n",
-                                lorawan.get_session_keys().unwrap()
-                            )
-                                .unwrap();
-
-                            *ctx.resources.lorawan = Some(lorawan);
-                        }
-                        ctx.resources.timer_context.lock(|context| {
-                            context.enable = false;
-                        });
-                    }
-                    LorawanResponse::ReadyToSend => {
-                        write!(debug, "RxWindow expired but no ACK expected. Ready to Send\r\n").unwrap();
-                        ctx.resources.timer_context.lock(|context| {
-                            context.enable = false;
-                        });
-                    }
-                    LorawanResponse::DataDown(fcnt_down) => {
-                        write!(debug, "Downlink with FCnt {}\r\n", fcnt_down).unwrap();
-                    }
-                    LorawanResponse::NoAck=> {
-                        write!(debug, "RxWindow expired, expected ACK to confirmed uplink not received\r\n").unwrap();
-                    }
-                    LorawanResponse::NoJoinAccept => {
-                        write!(debug, "No Join Accept Received\r\n").unwrap();
-                        ctx.spawn.lorawan_event(LorawanEvent::NewSession).unwrap();
-                    }
-                    LorawanResponse::Idle => (),
-                    LorawanResponse::Rxing => {
-                        write!(debug, "Rxing\r\n").unwrap();
-                    },
-                    LorawanResponse::WaitingForDataDown => {
-                        write!(debug, "Downlink Window Open\r\n").unwrap();
-                    }
-                    LorawanResponse::SendingDataUp(fcnt_up) => {
-                        write!(debug, "Uplink with FCnt {}\r\n", fcnt_up).unwrap();
-                    }
-                    LorawanResponse::SendingJoinRequest => {
-                        write!(debug, "Sending Join Request\r\n").unwrap();
-                    }
-                    LorawanResponse::WaitingForJoinAccept => {
-                        write!(debug, "Waiting For Join Accept\r\n").unwrap();
-                    }
+            Ok(response) => match response {
+                LorawanResponse::TimeoutRequest(ms) => {
+                    ctx.resources.timer_context.lock(|context| {
+                        context.target = ms as u16;
+                        context.armed = true;
+                    });
                 }
-            }
+                LorawanResponse::JoinSuccess => {
+                    if let Some(lorawan) = ctx.resources.lorawan.take() {
+                        write!(
+                            debug,
+                            "Join Success: {:?}\r\n",
+                            lorawan.get_session_keys().unwrap()
+                        )
+                        .unwrap();
+
+                        *ctx.resources.lorawan = Some(lorawan);
+                    }
+                    ctx.resources.timer_context.lock(|context| {
+                        context.enable = false;
+                    });
+                }
+                LorawanResponse::ReadyToSend => {
+                    write!(
+                        debug,
+                        "RxWindow expired but no ACK expected. Ready to Send\r\n"
+                    )
+                    .unwrap();
+                    ctx.resources.timer_context.lock(|context| {
+                        context.enable = false;
+                    });
+                }
+                LorawanResponse::DownlinkReceived(fcnt_down) => {
+                    write!(debug, "Downlink with FCnt {}\r\n", fcnt_down).unwrap();
+                }
+                LorawanResponse::NoAck => {
+                    write!(
+                        debug,
+                        "RxWindow expired, expected ACK to confirmed uplink not received\r\n"
+                    )
+                    .unwrap();
+                }
+                LorawanResponse::NoJoinAccept => {
+                    write!(debug, "No Join Accept Received\r\n").unwrap();
+                    ctx.spawn.lorawan_event(LorawanEvent::NewSession).unwrap();
+                }
+                LorawanResponse::NoUpdate => (),
+                LorawanResponse::UplinkSending(fcnt_up) => {
+                    write!(debug, "Uplink with FCnt {}\r\n", fcnt_up).unwrap();
+                }
+                LorawanResponse::JoinRequestSending => {
+                    write!(debug, "Join Request Sending\r\n").unwrap();
+                }
+            },
             Err(err) => match err {
                 LorawanError::Radio(_) => write!(debug, "Radio \r\n").unwrap(),
                 LorawanError::Session(e) => write!(debug, "Session {:?}\r\n", e).unwrap(),
@@ -266,7 +269,6 @@ const APP: () = {
 
     #[task(capacity = 4, priority = 2, resources = [debug_uart, lorawan], spawn = [lorawan_response])]
     fn send_ping(ctx: send_ping::Context) {
-        static mut COUNT: usize = 0;
         // The LoraWAN stack is a giant state machine which needs
         // to mutate internally
         // We let that happen within RTFM's framework for shared statics
@@ -277,29 +279,29 @@ const APP: () = {
             let ready_to_send = lorawan.ready_to_send_data();
 
             // placing back into the Option cell after take() is critical
-            *ctx.resources.lorawan = Some (
-                if ready_to_send {
-                    *COUNT += 1;
-                    let data: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, *COUNT as u8];
-
-                    // requested confirmed packet every 4 packets
-                    let confirmed = if (*COUNT) % 4 == 0 {
-                        write!(debug, "Requesting Confirmed Uplink\r\n").unwrap();
-                        true
-                    } else {
-                        write!(debug, "Requesting Unconfirmed Uplink\r\n").unwrap();
-                        false
-                    };
-                    let (new_state, response) = lorawan.send(&data, 1, confirmed);
-                    ctx.spawn.lorawan_response(response);
-                    new_state
-
+            *ctx.resources.lorawan = Some(if ready_to_send {
+                let fcnt_up = if let Some(fcnt) = lorawan.get_fcnt_up() {
+                    fcnt
                 } else {
-                    write!(debug, "Suppressing Send Request\r\n").unwrap();
-                    lorawan
-                }
-            );
+                    0
+                };
+                let data: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, fcnt_up as u8];
 
+                // requested confirmed packet every 4 packets
+                let confirmed = if fcnt_up % 4 == 0 {
+                    write!(debug, "Requesting Confirmed Uplink\r\n").unwrap();
+                    true
+                } else {
+                    write!(debug, "Requesting Unconfirmed Uplink\r\n").unwrap();
+                    false
+                };
+                let (new_state, response) = lorawan.send(&data, 1, confirmed);
+                ctx.spawn.lorawan_response(response).unwrap();
+                new_state
+            } else {
+                write!(debug, "Suppressing Send Request\r\n").unwrap();
+                lorawan
+            });
         }
     }
 
@@ -346,7 +348,6 @@ const APP: () = {
         let spawn = ctx.spawn;
         timer.clear_irq();
 
-
         // If timer has been disabled, another task
         // is asking to disarm the timer
         if !context.enable {
@@ -374,7 +375,6 @@ const APP: () = {
                 context.armed = false;
             }
         }
-
     }
 
     // Interrupt handlers used to dispatch software tasks
