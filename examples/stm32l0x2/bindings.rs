@@ -4,7 +4,6 @@ use hal::gpio::*;
 use hal::pac;
 use hal::prelude::*;
 use hal::rcc::Rcc;
-use hal::rng;
 use hal::spi;
 
 use nb::block;
@@ -37,7 +36,6 @@ pub type TcxoEn = gpioa::PA8<Output<PushPull>>;
 pub fn new(
     spi_peripheral: pac::SPI1,
     rcc: &mut Rcc,
-    rng: rng::Rng,
     spi_sck: gpiob::PB3<Uninitialized>,
     spi_miso: gpioa::PA6<Uninitialized>,
     spi_mosi: gpioa::PA7<Uninitialized>,
@@ -66,7 +64,6 @@ pub fn new(
             tx_rfo.into_push_pull_output(),
             tx_boost.into_push_pull_output(),
         ));
-        RNG = Some(rng);
         if let Some(tcxo_en) = tcxo_en_pin {
             EN_TCXO = Some(tcxo_en.into_push_pull_output());
             set_board_tcxo = Some(set_tcxo as unsafe extern "C" fn(bool) -> u8);
@@ -78,7 +75,6 @@ pub fn new(
         spi_in_out: Some(spi_in_out),
         spi_nss: Some(spi_nss),
         delay_ms: Some(delay_ms),
-        get_random_bits: Some(get_random_bits),
         set_antenna_pins: Some(set_antenna_pins),
         set_board_tcxo,
         busy_pin_status: None,
@@ -116,8 +112,7 @@ extern "C" fn spi_in_out(out_data: u8) -> u8 {
     unsafe {
         if let Some(spi) = &mut SPI {
             spi.send(out_data).unwrap();
-            let in_data = block!(spi.read()).unwrap();
-            in_data
+            block!(spi.read()).unwrap()
         } else {
             0
         }
@@ -155,25 +150,6 @@ extern "C" fn radio_reset(value: bool) {
 #[no_mangle]
 extern "C" fn delay_ms(ms: u32) {
     cortex_m::asm::delay(ms);
-}
-
-static mut RNG: Option<rng::Rng> = None;
-extern "C" fn get_random_bits(_bits: u8) -> u32 {
-    unsafe {
-        if let Some(rng) = &mut RNG {
-            // enable starts the ADC conversions that generate the random number
-            rng.enable();
-            // wait until the flag flips; interrupt driven is possible but no implemented
-            rng.wait();
-            // reading the result clears the ready flag
-            let val = rng.take_result();
-            // can save some power by disabling until next random number needed
-            rng.disable();
-            val
-        } else {
-            panic!("No Rng exists!");
-        }
-    }
 }
 
 pub struct AntennaSwitches<Rx, TxRfo, TxBoost> {

@@ -3,31 +3,23 @@ use sx12xx_sys::*;
 
 extern crate libm;
 
+use as_slice::AsMutSlice;
+use lorawan_device::radio::RxQuality;
 pub use sx12xx_sys::AntPinsMode_t as AntPinsMode;
 pub use sx12xx_sys::BoardBindings_t as BoardBindings;
-pub use sx12xx_sys::Sx12xxEvent_t as Event;
+use sx12xx_sys::Sx12xxEvent_t;
+pub use sx12xx_sys::Sx12xxRxMetadata_t as RxMetadata;
 use sx12xx_sys::Sx12xxState_t as Sx12xxState;
-use sx12xx_sys::Sx12xxRxMetadata_t as RxMetadata;
+mod lorawan;
+use sx12xx_sys::sx12xx_get_raw_buffer;
 
-pub struct RxQuality {
-    rssi: i16,
-    snr: i8,
-}
+pub use lorawan::LorawanRadio;
 
-impl RxQuality {
-    pub fn get_rssi(&self)-> i16 {
-        self.rssi
-    }
-
-    pub fn get_snr(&self)-> i8 {
-        self.snr
-    }
-}
-
-pub enum State {
+#[derive(Debug)]
+pub enum Response {
     Busy,
-    TxDone,
-    RxDone(RxQuality),
+    TxDone(u32),
+    RxDone(u32, RxQuality),
     TxTimeout,
     RxTimeout,
     RxError,
@@ -63,7 +55,9 @@ struct Settings {
 pub struct Sx12xx {
     settings: Settings,
     radio: Radio,
-    buffer: Vec<u8, U256>,
+    // changing the size of the Vec here
+    // breaks many "safe" assumptions later
+    rx_buffer: Vec<u8, U256>,
 }
 
 impl Radio {
@@ -82,6 +76,7 @@ impl Radio {
 #[derive(Debug)]
 pub enum Error {
     NoRadioPointer,
+    UnexpectedPhyEvent,
 }
 
 pub enum LoRaBandwidth {
@@ -107,8 +102,37 @@ pub enum LoRaCodingRate {
     _4_8 = 4,
 }
 
+#[derive(Clone)]
+pub enum Event {
+    DIO0(u32),
+    DIO1(u32),
+    DIO2(u32),
+    DIO3(u32),
+    DIO4(u32),
+    DIO5(u32),
+    Timer1,
+    Timer2,
+    Timer3,
+}
+
+impl From<Event> for Sx12xxEvent_t {
+    fn from(ev: Event) -> Sx12xxEvent_t {
+        match ev {
+            Event::DIO0(_) => Sx12xxEvent_t::Sx12xxEvent_DIO0,
+            Event::DIO1(_) => Sx12xxEvent_t::Sx12xxEvent_DIO1,
+            Event::DIO2(_) => Sx12xxEvent_t::Sx12xxEvent_DIO2,
+            Event::DIO3(_) => Sx12xxEvent_t::Sx12xxEvent_DIO3,
+            Event::DIO4(_) => Sx12xxEvent_t::Sx12xxEvent_DIO4,
+            Event::DIO5(_) => Sx12xxEvent_t::Sx12xxEvent_DIO5,
+            Event::Timer1 => Sx12xxEvent_t::Sx12xxEvent_Timer1,
+            Event::Timer2 => Sx12xxEvent_t::Sx12xxEvent_Timer2,
+            Event::Timer3 => Sx12xxEvent_t::Sx12xxEvent_Timer3,
+        }
+    }
+}
+use core::ptr;
+
 impl Sx12xx {
-    
     pub fn new(mut radio: Radio, bindings: BoardBindings) -> Sx12xx {
         unsafe {
             sx12xx_init(&mut radio.c_handle, bindings);
@@ -126,58 +150,57 @@ impl Sx12xx {
                 fix_len: false,
                 preamble_len: 8,
                 timeout: 5,
-                continuous_rx: true
+                continuous_rx: true,
             },
-            buffer: Vec::new(),
+            rx_buffer: Vec::new(),
         }
     }
 
-    pub fn handle_event(&mut self, event: Event) -> State {
-        let sx12xx_state = unsafe { sx12xx_handle_event(event) };
-
+    pub fn handle_event(&mut self, event: Event) -> Response {
+        let sx12xx_state = unsafe { sx12xx_handle_event(event.clone().into()) };
         match sx12xx_state {
-            Sx12xxState::Sx12xxState_Busy => State::Busy,
-            Sx12xxState::Sx12xxState_TxDone =>  {
-                self.buffer.clear();
-                State::TxDone
-            },
+            Sx12xxState::Sx12xxState_Busy => Response::Busy,
+            Sx12xxState::Sx12xxState_TxDone => {
+                if let Event::DIO0(t) = event {
+                    Response::TxDone(t)
+                } else {
+                    panic!("TxDone assumed to follow DIO0");
+                }
+            }
             Sx12xxState::Sx12xxState_RxDone => {
-                let metadata = unsafe { sx12xx_get_rx_metadata() };
-                self.buffer.resize(metadata.rx_len as usize, 0);
-                State::RxDone(RxQuality{
-                    snr: metadata.snr,
-                    rssi: metadata.rssi
-                })
-            },
-            Sx12xxState::Sx12xxState_TxTimeout => State::TxTimeout,
-            Sx12xxState::Sx12xxState_RxTimeout => State::RxTimeout,
-            Sx12xxState::Sx12xxState_RxError => State::RxError,
+                if let Event::DIO0(t) = event {
+                    let metadata = unsafe { sx12xx_get_rx_metadata() };
+                    self.rx_buffer.resize(metadata.rx_len as usize, 0).unwrap();
+
+                    unsafe {
+                        let src = sx12xx_get_raw_buffer();
+                        ptr::copy(
+                            src,
+                            self.rx_buffer.as_mut_slice().as_mut_ptr(),
+                            metadata.rx_len.into(),
+                        );
+                    }
+                    Response::RxDone(t, RxQuality::new(metadata.rssi, metadata.snr))
+                } else {
+                    panic!("TxDone assumed to follow DIO0");
+                }
+            }
+            Sx12xxState::Sx12xxState_TxTimeout => Response::TxTimeout,
+            Sx12xxState::Sx12xxState_RxTimeout => Response::RxTimeout,
+            Sx12xxState::Sx12xxState_RxError => Response::RxError,
         }
     }
 
-    pub fn get_buffer(&mut self) -> &Vec<u8, U256> {
-        &mut self.buffer
+    pub fn get_rx(&mut self) -> &mut Vec<u8, U256> {
+        &mut self.rx_buffer
     }
 
-    pub fn clear_buffer(&mut self) {
-        self.buffer.clear()
-    }
-
-    pub fn get_mut_buffer(&mut self) -> &mut Vec<u8, U256> {
-        &mut self.buffer
-    }
-
-    pub fn send_buffer(&mut self) {
+    pub fn send(&mut self, buffer: &mut [u8]) {
         unsafe {
             if let Some(send) = self.radio.c_handle.Send {
-                send(self.buffer.as_mut_ptr(), self.buffer.len() as u8);
+                send(buffer.as_mut_ptr(), buffer.len() as u8);
             }
         };
-    }
-
-    pub fn send(&mut self, buffer: &[u8]) {
-        self.buffer.extend(buffer);
-        self.send_buffer();
     }
 
     pub fn configure_fsk_tx(&mut self, power: i8, fdev: u32, datarate: u32) {
@@ -219,24 +242,23 @@ impl Sx12xx {
         unsafe {
             if let Some(set_tx_config) = self.radio.c_handle.SetTxConfig {
                 set_tx_config(
-                    RadioModems_t_MODEM_LORA,   // modem
-                    power,                      // power
-                    0,                          // fdev (is always 0 for LoRa)
-                    bandwidth as u32,           // bandwidth
-                    datarate as u32,            // datarate
-                    coderate as u8,             // coding rate
-                    self.settings.preamble_len, // preamble len
-                    self.settings.fix_len,      // fix length packet
-                    self.settings.crc_on,       // crc setting
-                    freq_hop_on,                // frequency hop setting
-                    hop_period,                 // number of symbols before hop
-                    self.settings.iq_inverted.tx,  // inverted iq
-                    3000,                       // transmission timeout
+                    RadioModems_t_MODEM_LORA,     // modem
+                    power,                        // power
+                    0,                            // fdev (is always 0 for LoRa)
+                    bandwidth as u32,             // bandwidth
+                    datarate as u32,              // datarate
+                    coderate as u8,               // coding rate
+                    self.settings.preamble_len,   // preamble len
+                    self.settings.fix_len,        // fix length packet
+                    self.settings.crc_on,         // crc setting
+                    freq_hop_on,                  // frequency hop setting
+                    hop_period,                   // number of symbols before hop
+                    self.settings.iq_inverted.tx, // inverted iq
+                    3000,                         // transmission timeout
                 );
             }
         };
     }
-
 
     pub fn configure_lora_rx(
         &mut self,
@@ -254,42 +276,32 @@ impl Sx12xx {
         unsafe {
             if let Some(set_rx_config) = self.radio.c_handle.SetRxConfig {
                 set_rx_config(
-                    RadioModems_t_MODEM_LORA,       // modem
-                    bandwidth as u32,               // bandwidth
-                    datarate as u32,                // datarate
-                    coderate as u8,                 // coding rate
-                    0, // bandwidth afc (FSK only)
-                    self.settings.preamble_len,     // preamble len
+                    RadioModems_t_MODEM_LORA,   // modem
+                    bandwidth as u32,           // bandwidth
+                    datarate as u32,            // datarate
+                    coderate as u8,             // coding rate
+                    0,                          // bandwidth afc (FSK only)
+                    self.settings.preamble_len, // preamble len
                     self.settings.timeout,
-                    self.settings.fix_len,          // fix length packet,
-                    0, // packet length if fixed
-                    self.settings.crc_on,           // crc setting
-                    freq_hop_on,                    // frequency hop setting
-                    hop_period,                     // number of symbols before hop
-                    self.settings.iq_inverted.rx,      // inverted iq
-                    self.settings.continuous_rx,    // transmission timeout
+                    self.settings.fix_len,        // fix length packet,
+                    0,                            // packet length if fixed
+                    self.settings.crc_on,         // crc setting
+                    freq_hop_on,                  // frequency hop setting
+                    hop_period,                   // number of symbols before hop
+                    self.settings.iq_inverted.rx, // inverted iq
+                    self.settings.continuous_rx,  // transmission timeout
                 );
             }
         };
     }
 
-    pub fn set_rx(
-        &mut self,
-    ) {
-
-        // we resize the buffer to max size allowing the C library to write to it
-        unsafe {
-            self.buffer.resize(255, 0);
-            sx12xx_set_rx_buffer(self.buffer.as_mut_ptr(), 255);
-        };
-
+    pub fn set_rx(&mut self) {
         unsafe {
             if let Some(rx) = self.radio.c_handle.Rx {
                 rx(0)
             }
         };
     }
-
 
     pub fn set_frequency(&mut self, frequency_mhz: u32) {
         unsafe {
