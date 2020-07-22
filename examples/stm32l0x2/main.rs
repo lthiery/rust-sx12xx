@@ -135,7 +135,9 @@ const APP: () = {
             get_random_u32,
         );
 
-        ctx.spawn.lorawan_event(LorawanEvent::NewSessionRequest).unwrap();
+        ctx.spawn
+            .lorawan_event(LorawanEvent::NewSessionRequest)
+            .unwrap();
 
         write!(tx, "Going to main loop\r\n").unwrap();
 
@@ -211,6 +213,12 @@ const APP: () = {
                         context.target = ms as u16;
                         context.armed = true;
                     });
+                    write!(
+                        debug,
+                        "TimeoutRequest: {:?}\r\n",
+                        ms
+                    ).unwrap();
+
                 }
                 LorawanResponse::JoinSuccess => {
                     if let Some(lorawan) = ctx.resources.lorawan.take() {
@@ -246,10 +254,18 @@ const APP: () = {
                         "RxWindow expired, expected ACK to confirmed uplink not received\r\n"
                     )
                     .unwrap();
+                    ctx.resources.timer_context.lock(|context| {
+                        context.enable = false;
+                    });
                 }
                 LorawanResponse::NoJoinAccept => {
                     write!(debug, "No Join Accept Received\r\n").unwrap();
-                    ctx.spawn.lorawan_event(LorawanEvent::NewSessionRequest).unwrap();
+                    ctx.spawn
+                        .lorawan_event(LorawanEvent::NewSessionRequest)
+                        .unwrap();
+                    ctx.resources.timer_context.lock(|context| {
+                        context.enable = false;
+                    });
                 }
                 LorawanResponse::NoUpdate => (),
                 LorawanResponse::UplinkSending(fcnt_up) => {

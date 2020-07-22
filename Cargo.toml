@@ -24,8 +24,6 @@ git = "https://github.com/helium/rust-lorawan.git"
 git = "https://github.com/lthiery/rust-lorawan-crypto.git"
 # path = "../rust-lorawan-crypto"
 
-
-
 [profile.dev]
 opt-level = "s"
 
