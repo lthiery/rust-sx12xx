@@ -32,16 +32,25 @@ pub struct Radio {
     c_handle: Radio_t,
 }
 
+impl core::fmt::Debug for Radio {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Radio::c_handle")
+    }
+}
+
+#[derive(Debug)]
 enum HopPeriod {
     Disabled,
     Enabled(u8),
 }
 
+#[derive(Debug)]
 struct IqInverted {
     rx: bool,
     tx: bool,
 }
 
+#[derive(Debug)]
 struct Settings {
     iq_inverted: IqInverted,
     hop_period: HopPeriod,
@@ -52,6 +61,7 @@ struct Settings {
     continuous_rx: bool,
 }
 
+#[derive(Debug)]
 pub struct Sx12xx {
     settings: Settings,
     radio: Radio,
@@ -102,7 +112,7 @@ pub enum LoRaCodingRate {
     _4_8 = 4,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Event {
     DIO0(u32),
     DIO1(u32),

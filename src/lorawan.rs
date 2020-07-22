@@ -1,7 +1,7 @@
 use super::{Error, Response, Sx12xx};
 use lorawan_device::radio::{Error as LoraError, Event as LoraEvent, Response as LoraResponse};
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum State {
     Idle(Idle),
     Txing(Txing),
@@ -10,6 +10,7 @@ pub enum State {
 
 use core::convert::From;
 
+#[derive(Debug)]
 pub struct LorawanRadio {
     sx12xx: Sx12xx,
     radio_state: State,
@@ -44,6 +45,7 @@ macro_rules! state {
     (
         $name:tt; [ $( $y:tt ),* ]
        ) => {
+        #[derive(Debug)]
         pub struct $name;
 
         $(default_transition![
@@ -198,7 +200,7 @@ impl lorawan_device::Timings for LorawanRadio {
         -500
     }
     fn get_rx_window_duration_ms(&self) -> u32 {
-        750
+        800
     }
 }
 
