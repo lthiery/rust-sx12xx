@@ -126,6 +126,7 @@ impl Txing {
         match event {
             LoraEvent::PhyEvent(phyevent) => {
                 if let Response::TxDone(timestamp_ms) = sx12xx.handle_event(phyevent) {
+                    sx12xx.standby();
                     (
                         State::Idle(self.into()),
                         Ok(LoraResponse::TxDone(timestamp_ms)),
@@ -154,12 +155,16 @@ impl Rxing {
         match event {
             LoraEvent::PhyEvent(phyevent) => {
                 if let Response::RxDone(_, quality) = sx12xx.handle_event(phyevent) {
+                    sx12xx.sleep();
                     (State::Idle(self.into()), Ok(LoraResponse::RxDone(quality)))
                 } else {
                     (State::Rxing(self), Ok(LoraResponse::Rxing))
                 }
             }
-            LoraEvent::CancelRx => (State::Idle(self.into()), Ok(LoraResponse::Idle)),
+            LoraEvent::CancelRx => {
+                sx12xx.sleep();
+                (State::Idle(self.into()), Ok(LoraResponse::Idle))
+            }
             LoraEvent::TxRequest(_, _) => (State::Rxing(self), Err(LoraError::TxRequestDuringTx)),
             LoraEvent::RxRequest(_) => (State::Rxing(self), Err(LoraError::RxRequestDuringRx)),
         }
