@@ -257,7 +257,6 @@ const APP: () = {
                 }
                 LorawanResponse::NoAck => {
                     *FAIL += 1;
-
                     write!(
                         debug,
                         "RxWindow expired, expected ACK to confirmed uplink not received. FAIL = {}, SUCCESS = {}\r\n", FAIL, SUCCESS
@@ -268,7 +267,6 @@ const APP: () = {
                 }
                 LorawanResponse::NoJoinAccept => {
                     *FAIL += 1;
-
                     write!(
                         debug,
                         "No Join Accept Received. FAIL = {}, SUCCESS = {}\r\n",
