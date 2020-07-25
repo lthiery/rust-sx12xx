@@ -1,4 +1,4 @@
-# sx12xx-rs
+# rust-sx12xx
 Rust bindings for Semtech 12xx LoRa radios
 
 ## Cloning, building, testing
