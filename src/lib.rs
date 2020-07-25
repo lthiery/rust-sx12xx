@@ -305,6 +305,23 @@ impl Sx12xx {
         };
     }
 
+    pub fn sleep(&mut self) {
+        unsafe {
+            if let Some(sleep) = self.radio.c_handle.Sleep {
+                sleep()
+            }
+        }
+    }
+
+    pub fn standby(&mut self) {
+        unsafe {
+            if let Some(standby) = self.radio.c_handle.Standby {
+                standby()
+            }
+        }
+    }
+
+
     pub fn set_rx(&mut self) {
         unsafe {
             if let Some(rx) = self.radio.c_handle.Rx {

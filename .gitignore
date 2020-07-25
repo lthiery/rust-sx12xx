@@ -6,3 +6,4 @@ target/
 
 build-script-target
 sx12xx-sys/sx12xx/build
+.idea/

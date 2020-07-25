@@ -204,6 +204,9 @@ const APP: () = {
         mut ctx: lorawan_response::Context,
         response: Result<LorawanResponse, LorawanError<LorawanRadio>>,
     ) {
+        static mut SUCCESS: usize = 0;
+        static mut FAIL: usize = 0;
+
         let debug = ctx.resources.debug_uart;
 
         match response {
@@ -222,10 +225,13 @@ const APP: () = {
                 }
                 LorawanResponse::JoinSuccess => {
                     if let Some(lorawan) = ctx.resources.lorawan.take() {
+                        *SUCCESS += 1;
                         write!(
                             debug,
-                            "Join Success: {:?}\r\n",
-                            lorawan.get_session_keys().unwrap()
+                            "Join Success: {:?} FAIL = {}, SUCCESS = {}\r\n",
+                            lorawan.get_session_keys().unwrap(),
+                            FAIL,
+                            SUCCESS
                         )
                         .unwrap();
 
@@ -246,20 +252,24 @@ const APP: () = {
                     });
                 }
                 LorawanResponse::DownlinkReceived(fcnt_down) => {
-                    write!(debug, "Downlink with FCnt {}\r\n", fcnt_down).unwrap();
+                    *SUCCESS += 1;
+                    write!(debug, "Downlink with FCnt {}. FAIL = {}, SUCCESS = {}\r\n", fcnt_down, FAIL, SUCCESS).unwrap();
                 }
                 LorawanResponse::NoAck => {
+                    *FAIL += 1;
+
                     write!(
                         debug,
-                        "RxWindow expired, expected ACK to confirmed uplink not received\r\n"
-                    )
-                    .unwrap();
+                        "RxWindow expired, expected ACK to confirmed uplink not received. FAIL = {}, SUCCESS = {}\r\n", FAIL, SUCCESS
+                    ).unwrap();
                     ctx.resources.timer_context.lock(|context| {
                         context.enable = false;
                     });
                 }
                 LorawanResponse::NoJoinAccept => {
-                    write!(debug, "No Join Accept Received\r\n").unwrap();
+                    *FAIL += 1;
+
+                    write!(debug, "No Join Accept Received. FAIL = {}, SUCCESS = {}\r\n", FAIL, SUCCESS).unwrap();
                     ctx.spawn
                         .lorawan_event(LorawanEvent::NewSessionRequest)
                         .unwrap();
@@ -304,7 +314,7 @@ const APP: () = {
                 let data: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, fcnt_up as u8];
 
                 // requested confirmed packet every 4 packets
-                let confirmed = if fcnt_up % 4 == 0 {
+                let confirmed = if fcnt_up % 1 == 0 {
                     write!(debug, "Requesting Confirmed Uplink\r\n").unwrap();
                     true
                 } else {
