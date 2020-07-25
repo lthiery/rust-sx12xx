@@ -216,12 +216,7 @@ const APP: () = {
                         context.target = ms as u16;
                         context.armed = true;
                     });
-                    write!(
-                        debug,
-                        "TimeoutRequest: {:?}\r\n",
-                        ms
-                    ).unwrap();
-
+                    write!(debug, "TimeoutRequest: {:?}\r\n", ms).unwrap();
                 }
                 LorawanResponse::JoinSuccess => {
                     if let Some(lorawan) = ctx.resources.lorawan.take() {
@@ -253,7 +248,12 @@ const APP: () = {
                 }
                 LorawanResponse::DownlinkReceived(fcnt_down) => {
                     *SUCCESS += 1;
-                    write!(debug, "Downlink with FCnt {}. FAIL = {}, SUCCESS = {}\r\n", fcnt_down, FAIL, SUCCESS).unwrap();
+                    write!(
+                        debug,
+                        "Downlink with FCnt {}. FAIL = {}, SUCCESS = {}\r\n",
+                        fcnt_down, FAIL, SUCCESS
+                    )
+                    .unwrap();
                 }
                 LorawanResponse::NoAck => {
                     *FAIL += 1;
@@ -269,7 +269,12 @@ const APP: () = {
                 LorawanResponse::NoJoinAccept => {
                     *FAIL += 1;
 
-                    write!(debug, "No Join Accept Received. FAIL = {}, SUCCESS = {}\r\n", FAIL, SUCCESS).unwrap();
+                    write!(
+                        debug,
+                        "No Join Accept Received. FAIL = {}, SUCCESS = {}\r\n",
+                        FAIL, SUCCESS
+                    )
+                    .unwrap();
                     ctx.spawn
                         .lorawan_event(LorawanEvent::NewSessionRequest)
                         .unwrap();
@@ -314,7 +319,7 @@ const APP: () = {
                 let data: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, fcnt_up as u8];
 
                 // requested confirmed packet every 4 packets
-                let confirmed = if fcnt_up % 1 == 0 {
+                let confirmed = if fcnt_up % 4 == 0 {
                     write!(debug, "Requesting Confirmed Uplink\r\n").unwrap();
                     true
                 } else {

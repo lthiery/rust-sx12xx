@@ -321,7 +321,6 @@ impl Sx12xx {
         }
     }
 
-
     pub fn set_rx(&mut self) {
         unsafe {
             if let Some(rx) = self.radio.c_handle.Rx {
