@@ -162,7 +162,10 @@ impl Rxing {
                 }
 
             }
-            LoraEvent::CancelRx => (State::Idle(self.into()), Ok(LoraResponse::Idle)),
+            LoraEvent::CancelRx => {
+                sx12xx.sleep();
+                (State::Idle(self.into()), Ok(LoraResponse::Idle))
+            },
             LoraEvent::TxRequest(_, _) => (State::Rxing(self), Err(LoraError::TxRequestDuringTx)),
             LoraEvent::RxRequest(_) => (State::Rxing(self), Err(LoraError::RxRequestDuringRx)),
         }
