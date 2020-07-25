@@ -204,6 +204,9 @@ const APP: () = {
         mut ctx: lorawan_response::Context,
         response: Result<LorawanResponse, LorawanError<LorawanRadio>>,
     ) {
+        static mut SUCCESS: usize = 0;
+        static mut FAIL: usize = 0;
+
         let debug = ctx.resources.debug_uart;
 
         match response {
@@ -213,19 +216,17 @@ const APP: () = {
                         context.target = ms as u16;
                         context.armed = true;
                     });
-                    write!(
-                        debug,
-                        "TimeoutRequest: {:?}\r\n",
-                        ms
-                    ).unwrap();
-
+                    write!(debug, "TimeoutRequest: {:?}\r\n", ms).unwrap();
                 }
                 LorawanResponse::JoinSuccess => {
                     if let Some(lorawan) = ctx.resources.lorawan.take() {
+                        *SUCCESS += 1;
                         write!(
                             debug,
-                            "Join Success: {:?}\r\n",
-                            lorawan.get_session_keys().unwrap()
+                            "Join Success: {:?} FAIL = {}, SUCCESS = {}\r\n",
+                            lorawan.get_session_keys().unwrap(),
+                            FAIL,
+                            SUCCESS
                         )
                         .unwrap();
 
@@ -246,20 +247,32 @@ const APP: () = {
                     });
                 }
                 LorawanResponse::DownlinkReceived(fcnt_down) => {
-                    write!(debug, "Downlink with FCnt {}\r\n", fcnt_down).unwrap();
-                }
-                LorawanResponse::NoAck => {
+                    *SUCCESS += 1;
                     write!(
                         debug,
-                        "RxWindow expired, expected ACK to confirmed uplink not received\r\n"
+                        "Downlink with FCnt {}. FAIL = {}, SUCCESS = {}\r\n",
+                        fcnt_down, FAIL, SUCCESS
                     )
                     .unwrap();
+                }
+                LorawanResponse::NoAck => {
+                    *FAIL += 1;
+                    write!(
+                        debug,
+                        "RxWindow expired, expected ACK to confirmed uplink not received. FAIL = {}, SUCCESS = {}\r\n", FAIL, SUCCESS
+                    ).unwrap();
                     ctx.resources.timer_context.lock(|context| {
                         context.enable = false;
                     });
                 }
                 LorawanResponse::NoJoinAccept => {
-                    write!(debug, "No Join Accept Received\r\n").unwrap();
+                    *FAIL += 1;
+                    write!(
+                        debug,
+                        "No Join Accept Received. FAIL = {}, SUCCESS = {}\r\n",
+                        FAIL, SUCCESS
+                    )
+                    .unwrap();
                     ctx.spawn
                         .lorawan_event(LorawanEvent::NewSessionRequest)
                         .unwrap();
