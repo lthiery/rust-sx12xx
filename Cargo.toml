@@ -18,11 +18,11 @@ libm = "0.1.4"
 heapless = "0.5.4"
 as-slice = "*"
 [dependencies.lorawan-device]
-#git = "https://github.com/helium/rust-lorawan.git"
-path = "../rust-lorawan/device"
+git = "https://github.com/helium/rust-lorawan.git"
+#path = "../rust-lorawan/device"
 [dependencies.lorawan-crypto]
-#git = "https://github.com/lthiery/rust-lorawan-crypto.git"
-path = "../rust-lorawan-crypto"
+git = "https://github.com/lthiery/rust-lorawan-crypto.git"
+#path = "../rust-lorawan-crypto"
 
 
 [profile.dev]
