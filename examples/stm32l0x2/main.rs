@@ -13,7 +13,7 @@ use lorawan_device::{
     radio, Device as LorawanDevice, Error as LorawanError, Event as LorawanEvent,
     Response as LorawanResponse,
 };
-use rtfm::app;
+use rtic::app;
 use stm32l0xx_hal::exti::{ExtiLine, GpioLine};
 use stm32l0xx_hal::serial::Serial1Ext;
 use stm32l0xx_hal::serial::USART1 as DebugUsart;
@@ -359,7 +359,7 @@ const APP: () = {
             context.enable = true;
         }
 
-        rtfm::pend(Interrupt::TIM2);
+        rtic::pend(Interrupt::TIM2);
 
         ctx.spawn
             .lorawan_event(lorawan_device::Event::RadioEvent(

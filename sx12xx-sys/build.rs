@@ -64,6 +64,6 @@ fn main() {
 
 #[cfg(not(workaround_build))]
 fn main() {
-   cargo_5730::run_build_script();
+  cargo_5730::run_build_script();
 }
 
