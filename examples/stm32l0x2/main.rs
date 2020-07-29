@@ -14,17 +14,30 @@ use lorawan_device::{
     Response as LorawanResponse,
 };
 use rtic::app;
-use stm32l0xx_hal::exti::{ExtiLine, GpioLine};
-use stm32l0xx_hal::serial::Serial1Ext;
-use stm32l0xx_hal::serial::USART1 as DebugUsart;
-use stm32l0xx_hal::{exti::Exti, prelude::*, rcc, rng::Rng, syscfg, timer::Timer};
-use stm32l0xx_hal::{pac, pac::Interrupt, rng, serial};
-use sx12xx;
-use sx12xx::{LorawanRadio, Sx12xx};
+use stm32l0xx_hal::{
+    exti::Exti,
+    exti::{ExtiLine, GpioLine},
+    pac,
+    pac::Interrupt,
+    prelude::*,
+    rcc, rng,
+    rng::Rng,
+    serial,
+    serial::Serial1Ext,
+    syscfg,
+    timer::Timer,
+};
+use sx12xx::{self, LorawanRadio, Sx12xx};
 mod bindings;
 pub use bindings::initialize_irq as initialize_radio_irq;
 pub use bindings::RadioIRQ;
 pub use bindings::TcxoEn;
+
+// catena-4610
+use stm32l0xx_hal::serial::USART1 as DebugUsart;
+
+// lrwan1-disco
+//use stm32l0xx_hal::serial::USART1 as DebugUsart;
 
 static mut RNG: Option<rng::Rng> = None;
 fn get_random_u32() -> u32 {
@@ -83,7 +96,10 @@ const APP: () = {
         let gpiob = device.GPIOB.split(&mut rcc);
         let gpioc = device.GPIOC.split(&mut rcc);
 
+        // catena-4610
         let (tx_pin, rx_pin, serial_peripheral) = (gpioa.pa9, gpioa.pa10, device.USART1);
+
+        // lrwan1-disco
         //let (tx_pin, rx_pin, serial_peripheral) = (gpioa.pa2, gpioa.pa3, device.USART2);
 
         let mut serial = serial_peripheral
@@ -156,9 +172,8 @@ const APP: () = {
     fn lorawan_event(ctx: lorawan_event::Context, event: LorawanEvent<'static, LorawanRadio>) {
         let debug = ctx.resources.debug_uart;
 
-        // The LoraWAN stack is a giant state machine which needs
-        // to mutate internally
-        // We let that happen within RTFM's framework for shared statics
+        // The LoraWAN stack is a giant state machine which needs to mutate internally
+        // We let that happen within RTIC's framework for shared statics
         // by using an Option cell that we can take() from
         if let Some(lorawan) = ctx.resources.lorawan.take() {
             // debug statements for the event
@@ -204,11 +219,7 @@ const APP: () = {
         mut ctx: lorawan_response::Context,
         response: Result<LorawanResponse, LorawanError<LorawanRadio>>,
     ) {
-        static mut SUCCESS: usize = 0;
-        static mut FAIL: usize = 0;
-
         let debug = ctx.resources.debug_uart;
-
         match response {
             Ok(response) => match response {
                 LorawanResponse::TimeoutRequest(ms) => {
@@ -220,13 +231,10 @@ const APP: () = {
                 }
                 LorawanResponse::JoinSuccess => {
                     if let Some(lorawan) = ctx.resources.lorawan.take() {
-                        *SUCCESS += 1;
                         write!(
                             debug,
-                            "Join Success: {:?} FAIL = {}, SUCCESS = {}\r\n",
-                            lorawan.get_session_keys().unwrap(),
-                            FAIL,
-                            SUCCESS
+                            "Join Success: {:?}\r\n",
+                            lorawan.get_session_keys().unwrap()
                         )
                         .unwrap();
 
@@ -247,32 +255,20 @@ const APP: () = {
                     });
                 }
                 LorawanResponse::DownlinkReceived(fcnt_down) => {
-                    *SUCCESS += 1;
-                    write!(
-                        debug,
-                        "Downlink with FCnt {}. FAIL = {}, SUCCESS = {}\r\n",
-                        fcnt_down, FAIL, SUCCESS
-                    )
-                    .unwrap();
+                    write!(debug, "Downlink with FCnt {}\r\n", fcnt_down).unwrap();
                 }
                 LorawanResponse::NoAck => {
-                    *FAIL += 1;
                     write!(
                         debug,
-                        "RxWindow expired, expected ACK to confirmed uplink not received. FAIL = {}, SUCCESS = {}\r\n", FAIL, SUCCESS
-                    ).unwrap();
+                        "RxWindow expired, expected ACK to confirmed uplink not received\r\n"
+                    )
+                    .unwrap();
                     ctx.resources.timer_context.lock(|context| {
                         context.enable = false;
                     });
                 }
                 LorawanResponse::NoJoinAccept => {
-                    *FAIL += 1;
-                    write!(
-                        debug,
-                        "No Join Accept Received. FAIL = {}, SUCCESS = {}\r\n",
-                        FAIL, SUCCESS
-                    )
-                    .unwrap();
+                    write!(debug, "No Join Accept Received\r\n").unwrap();
                     ctx.spawn
                         .lorawan_event(LorawanEvent::NewSessionRequest)
                         .unwrap();
@@ -298,9 +294,8 @@ const APP: () = {
 
     #[task(capacity = 4, priority = 2, resources = [debug_uart, lorawan], spawn = [lorawan_response])]
     fn send_ping(ctx: send_ping::Context) {
-        // The LoraWAN stack is a giant state machine which needs
-        // to mutate internally
-        // We let that happen within RTFM's framework for shared statics
+        // The LoraWAN stack is a giant state machine which needs to mutate internally
+        // We let that happen within RTIC's framework for shared statics
         // by using an Option cell that we can take() from
         if let Some(lorawan) = ctx.resources.lorawan.take() {
             let debug = ctx.resources.debug_uart;
@@ -334,14 +329,21 @@ const APP: () = {
         }
     }
 
-    //#[task(binds = USART2, priority=2, resources = [uart_rx], spawn = [send_ping])]
-    //fn USART2(ctx: USART2::Context) {
+    // catena-4610
     #[task(binds = USART1, priority=1, resources = [uart_rx], spawn = [send_ping])]
     fn USART1(ctx: USART1::Context) {
         let rx = ctx.resources.uart_rx;
         rx.read().unwrap();
         ctx.spawn.send_ping().unwrap();
     }
+
+    // lrwan1-disco
+    //#[task(binds = USART1, priority=1, resources = [uart_rx], spawn = [send_ping])]
+    // fn USART2(ctx: USART2::Context) {
+    //     let rx = ctx.resources.uart_rx;
+    //     rx.read().unwrap();
+    //     ctx.spawn.send_ping().unwrap();
+    // }
 
     #[task(binds = EXTI4_15, priority = 3, resources = [radio_irq, int, timer_context], spawn = [lorawan_event])]
     fn EXTI4_15(ctx: EXTI4_15::Context) {
@@ -369,7 +371,7 @@ const APP: () = {
     }
 
     // This is a pretty not scalable timeout implementation
-    // but we can switch to RTFM timer queues later maybe
+    // but we can switch to RTICtimer queues later maybe
     #[task(binds = TIM2, priority = 3, resources = [timer, timer_context], spawn = [lorawan_event])]
     fn TIM2(ctx: TIM2::Context) {
         let context = ctx.resources.timer_context;
