@@ -21,3 +21,36 @@ run the example:
 
 Run tests:
     `cargo test --target x86_64-unknown-linux-gnu --tests`
+
+## Dependencies and Build Errors
+
+### Apt install all the things
+
+Here's a quick list of things to get your started with a build system on Ubuntu
+
+```
+sudo apt-get install g++-multilib libc6-dev-i386 gcc-arm-none-eabi libnewlib-arm-none-eabi cmake llvm-dev
+```
+
+### LLVM
+
+```
+llvm-config missing
+```
+
+On Ubuntu 20, for example, do:
+
+```
+sudo apt install llvm-dev
+```
+
+### Libc-dev
+
+```
+fatal error: 'gnu/stubs-32.h' file not found
+```
+
+32-bit libc dev missing. On Ubuntu 20, for example, do:
+```
+sudo apt install libc6-dev-i386
+```

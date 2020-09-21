@@ -255,7 +255,37 @@ const APP: () = {
                     });
                 }
                 LorawanResponse::DownlinkReceived(fcnt_down) => {
-                    write!(debug, "Downlink with FCnt {}\r\n", fcnt_down).unwrap();
+                    if let Some(mut lorawan) = ctx.resources.lorawan.take() {
+                        if let Some(downlink) = lorawan.take_data_downlink() {
+                            let fhdr = downlink.fhdr();
+                            let fopts = fhdr.fopts();
+                            use lorawan_encoding::parser::{DataHeader, FRMPayload};
+
+                            if let Ok(FRMPayload::Data(data)) = downlink.frm_payload() {
+                                write!(
+                                    debug,
+                                    "Downlink received \t\t(FCntDown={}\tFRM: {:?})",
+                                    fcnt_down, data,
+                                )
+                                .unwrap();
+                            } else {
+                                write!(debug, "Downlink received \t\t(FcntDown={})", fcnt_down)
+                                    .unwrap();
+                            }
+
+                            let mut mac_commands_len = 0;
+                            for mac_command in fopts {
+                                if mac_commands_len == 0 {
+                                    write!(debug, "\tFOpts: ").unwrap();
+                                }
+                                write!(debug, "{:?},", mac_command).unwrap();
+                                mac_commands_len += 1;
+                            }
+                        }
+
+                        // placing back into the Option cell after taking is critical
+                        *ctx.resources.lorawan = Some(lorawan);
+                    }
                 }
                 LorawanResponse::NoAck => {
                     write!(
@@ -269,6 +299,15 @@ const APP: () = {
                 }
                 LorawanResponse::NoJoinAccept => {
                     write!(debug, "No Join Accept Received\r\n").unwrap();
+                    ctx.spawn
+                        .lorawan_event(LorawanEvent::NewSessionRequest)
+                        .unwrap();
+                    ctx.resources.timer_context.lock(|context| {
+                        context.enable = false;
+                    });
+                }
+                LorawanResponse::SessionExpired => {
+                    write!(debug, "SessionExpired. Created new Session\r\n").unwrap();
                     ctx.spawn
                         .lorawan_event(LorawanEvent::NewSessionRequest)
                         .unwrap();
