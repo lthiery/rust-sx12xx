@@ -182,6 +182,10 @@ where
         self.rx.set_low().unwrap_or(());
         self.tx_rfo.set_low().unwrap_or(());
         self.tx_boost.set_high().unwrap_or(());
+
+        // self.rx.set_low().unwrap_or(());
+        // self.tx_rfo.set_low().unwrap_or(());
+        // self.tx_boost.set_low().unwrap_or(());
     }
 
     pub fn set_rx(&mut self) {
