@@ -253,7 +253,7 @@ impl Sx12xx {
             if let Some(set_tx_config) = self.radio.c_handle.SetTxConfig {
                 set_tx_config(
                     RadioModems_t_MODEM_LORA,     // modem
-                    power,                        // power
+                    12,//power,                        // power
                     0,                            // fdev (is always 0 for LoRa)
                     bandwidth as u32,             // bandwidth
                     datarate as u32,              // datarate

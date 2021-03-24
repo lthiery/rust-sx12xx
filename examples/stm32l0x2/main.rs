@@ -11,7 +11,7 @@ use core::fmt::Write;
 use lorawan_crypto::LorawanCrypto as Crypto;
 use lorawan_device::{
     radio, Device as LorawanDevice, Error as LorawanError, Event as LorawanEvent,
-    Response as LorawanResponse,
+    Response as LorawanResponse, region, region::RegionHandler
 };
 use rtic::app;
 use stm32l0xx_hal::{
@@ -43,6 +43,7 @@ static mut RNG: Option<rng::Rng> = None;
 fn get_random_u32() -> u32 {
     unsafe {
         if let Some(rng) = &mut RNG {
+
             // enable starts the ADC conversions that generate the random number
             rng.enable();
             // wait until the flag flips; interrupt driven is possible but no implemented
@@ -63,6 +64,11 @@ pub struct TimerContext {
     pub count: u16,
     pub enable: bool,
     pub armed: bool,
+}
+
+#[derive(Debug)]
+enum Error {
+    UsartRx
 }
 
 #[app(device = stm32l0xx_hal::pac, peripherals = true)]
@@ -140,13 +146,15 @@ const APP: () = {
         let mut sx12xx = Sx12xx::new(sx12xx::Radio::sx1276(), bindings);
         sx12xx.set_public_network(true);
 
+        let mut region = region::US915::default();
+        region.set_subband(2);
         let lorawan = LorawanDevice::new(
+            region.into(),
             LorawanRadio::new(sx12xx),
-            [0x55, 0x6C, 0xB6, 0x1E, 0x37, 0xC5, 0x3C, 0x00],
-            [0xB9, 0x94, 0x02, 0xD0, 0x7E, 0xD5, 0xB3, 0x70],
+            [0x83, 0x60, 0xBA, 0x48, 0x48, 0x99, 0xEB, 0x71],
+            [0x3F, 0x94, 0xB8, 0xB8, 0xB5, 0x5E, 0x1B, 0x35],
             [
-                0xBF, 0x40, 0xD3, 0x0E, 0x4E, 0x23, 0x42, 0x8E, 0xF6, 0x82, 0xCA, 0x77, 0x64, 0xCD,
-                0xB4, 0x23,
+                0x3E, 0x24, 0xA1, 0x09, 0x46, 0x63, 0x5B, 0x5E, 0x36, 0x09, 0x27, 0x88, 0xE1, 0x37, 0xC5, 0xB8
             ],
             get_random_u32,
         );
@@ -166,6 +174,13 @@ const APP: () = {
             lorawan: Some(lorawan),
             timer,
         }
+    }
+
+    #[task(capacity = 4, priority = 2, resources = [debug_uart, buffer, lorawan])]
+    fn print_error(ctx: print_error::Context, event: Error) {
+        let debug = ctx.resources.debug_uart;
+        write!(debug, "ERROR {:?}\r\n", event).unwrap();
+
     }
 
     #[task(capacity = 4, priority = 2, resources = [debug_uart, buffer, lorawan], spawn  = [lorawan_response])]
@@ -214,7 +229,7 @@ const APP: () = {
         }
     }
 
-    #[task(capacity = 4, priority = 2, resources = [debug_uart, timer_context, lorawan], spawn = [lorawan_event])]
+    #[task(capacity = 4, priority = 2, resources = [debug_uart, timer_context, lorawan], spawn = [lorawan_event, send_ping])]
     fn lorawan_response(
         mut ctx: lorawan_response::Context,
         response: Result<LorawanResponse, LorawanError<LorawanRadio>>,
@@ -243,6 +258,9 @@ const APP: () = {
                     ctx.resources.timer_context.lock(|context| {
                         context.enable = false;
                     });
+
+                    ctx.spawn.send_ping().unwrap();
+
                 }
                 LorawanResponse::ReadyToSend => {
                     write!(
@@ -253,6 +271,9 @@ const APP: () = {
                     ctx.resources.timer_context.lock(|context| {
                         context.enable = false;
                     });
+
+                    ctx.spawn.send_ping().unwrap();
+
                 }
                 LorawanResponse::DownlinkReceived(fcnt_down) => {
                     if let Some(mut lorawan) = ctx.resources.lorawan.take() {
@@ -278,10 +299,14 @@ const APP: () = {
                                 if mac_commands_len == 0 {
                                     write!(debug, "\tFOpts: ").unwrap();
                                 }
-                                write!(debug, "{:?},", mac_command).unwrap();
+                                write!(debug, ",{:?}", mac_command).unwrap();
                                 mac_commands_len += 1;
                             }
+
+                            write!(debug, "\r\n").unwrap();
+
                         }
+                        ctx.spawn.send_ping().unwrap();
 
                         // placing back into the Option cell after taking is critical
                         *ctx.resources.lorawan = Some(lorawan);
@@ -296,6 +321,8 @@ const APP: () = {
                     ctx.resources.timer_context.lock(|context| {
                         context.enable = false;
                     });
+                    ctx.spawn.send_ping().unwrap();
+
                 }
                 LorawanResponse::NoJoinAccept => {
                     write!(debug, "No Join Accept Received\r\n").unwrap();
@@ -350,15 +377,15 @@ const APP: () = {
                 };
                 let data: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, fcnt_up as u8];
 
-                // requested confirmed packet every 4 packets
-                let confirmed = if fcnt_up % 4 == 0 {
-                    write!(debug, "Requesting Confirmed Uplink\r\n").unwrap();
-                    true
-                } else {
-                    write!(debug, "Requesting Unconfirmed Uplink\r\n").unwrap();
-                    false
-                };
-                let (new_state, response) = lorawan.send(&data, 1, confirmed);
+                // // requested confirmed packet every 4 packets
+                // let confirmed = if fcnt_up % 4 == 0 {
+                //     write!(debug, "Requesting Confirmed Uplink\r\n").unwrap();
+                //     true
+                // } else {
+                //     write!(debug, "Requesting Unconfirmed Uplink\r\n").unwrap();
+                //     true
+                // };
+                let (new_state, response) = lorawan.send(&data, 1, true);
                 ctx.spawn.lorawan_response(response).unwrap();
                 new_state
             } else {
@@ -369,10 +396,12 @@ const APP: () = {
     }
 
     // catena-4610
-    #[task(binds = USART1, priority=1, resources = [uart_rx], spawn = [send_ping])]
+    #[task(binds = USART1, priority=1, resources = [uart_rx], spawn = [send_ping, print_error])]
     fn USART1(ctx: USART1::Context) {
         let rx = ctx.resources.uart_rx;
-        rx.read().unwrap();
+        if let Err(_e) = rx.read() {
+            ctx.spawn.print_error(Error::UsartRx).unwrap();
+        }
         ctx.spawn.send_ping().unwrap();
     }
 
