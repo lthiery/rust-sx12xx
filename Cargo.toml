@@ -18,11 +18,13 @@ libm = "0.1.4"
 heapless = "0.5.4"
 as-slice = "*"
 [dependencies.lorawan-device]
-git = "https://github.com/ivajloip/rust-lorawan.git"
-rev = "88138a3"
+git = "https://github.com/helium/rust-lorawan.git"
+default-features = false
+branch = "lthiery/selectable-device-regions"
+
 [dependencies.lorawan-crypto]
 git = "https://github.com/lthiery/rust-lorawan-crypto.git"
-rev = "a7dfeaf6"
+branch = "lthiery/new-deps"
 
 [profile.dev]
 opt-level = "s"
@@ -43,7 +45,16 @@ cast = { version = "0.2.2", default-features = false }
 panic-ramdump = "0.1.1"
 embedded-hal = { version = "0.2.3", features = ["unproven"] }
 nb = "0.1.2"
-lorawan-encoding = { git = "https://github.com/ivajloip/rust-lorawan.git", default-features = false, rev = "88138a3" }
+
+[dev-dependencies.lorawan-device ]
+git = "https://github.com/helium/rust-lorawan.git"
+default-features = false
+branch = "lthiery/selectable-device-regions"
+
+[dev-dependencies.lorawan-encoding ]
+git = "https://github.com/helium/rust-lorawan.git"
+default-features = false
+branch = "lthiery/selectable-device-regions"
 
 [dev-dependencies.stm32l0xx-hal]
 git                    = "https://github.com/stm32-rs/stm32l0xx-hal.git"
