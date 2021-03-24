@@ -377,15 +377,15 @@ const APP: () = {
                 };
                 let data: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, fcnt_up as u8];
 
-                // // requested confirmed packet every 4 packets
-                // let confirmed = if fcnt_up % 4 == 0 {
-                //     write!(debug, "Requesting Confirmed Uplink\r\n").unwrap();
-                //     true
-                // } else {
-                //     write!(debug, "Requesting Unconfirmed Uplink\r\n").unwrap();
-                //     true
-                // };
-                let (new_state, response) = lorawan.send(&data, 1, true);
+                // requested confirmed packet every 4 packets
+                let confirmed = if fcnt_up % 4 == 0 {
+                    write!(debug, "Requesting Confirmed Uplink\r\n").unwrap();
+                    true
+                } else {
+                    write!(debug, "Requesting Unconfirmed Uplink\r\n").unwrap();
+                    true
+                };
+                let (new_state, response) = lorawan.send(&data, 1, confirmed);
                 ctx.spawn.lorawan_response(response).unwrap();
                 new_state
             } else {
