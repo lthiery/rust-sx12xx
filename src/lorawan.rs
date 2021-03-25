@@ -214,10 +214,10 @@ impl lorawan_device::radio::PhyRxTx for LorawanRadio {
 
 impl lorawan_device::Timings for LorawanRadio {
     fn get_rx_window_offset_ms(&self) -> i32 {
-        self.get_rx_window_offset_ms
+        self.rx_window_offset_ms
     }
     fn get_rx_window_duration_ms(&self) -> u32 {
-        self.get_rx_window_duration_ms
+        self.rx_window_duration_ms
     }
 }
 
