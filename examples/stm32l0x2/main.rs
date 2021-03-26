@@ -26,6 +26,7 @@ use stm32l0xx_hal::{
     serial::Serial1Ext,
     syscfg,
     timer::Timer,
+    time::Bps
 };
 use sx12xx::{self, LorawanRadio, Sx12xx};
 mod bindings;
@@ -107,9 +108,9 @@ const APP: () = {
 
         // lrwan1-disco
         //let (tx_pin, rx_pin, serial_peripheral) = (gpioa.pa2, gpioa.pa3, device.USART2);
-
+        let serial_config = serial::Config::default().baudrate(Bps(115200));
         let mut serial = serial_peripheral
-            .usart(tx_pin, rx_pin, serial::Config::default(), &mut rcc)
+            .usart(tx_pin, rx_pin, serial_config , &mut rcc)
             .unwrap();
 
         // listen for incoming bytes which will trigger transmits
@@ -151,10 +152,10 @@ const APP: () = {
         let lorawan = LorawanDevice::new(
             region.into(),
             LorawanRadio::new(sx12xx),
-            [0x83, 0x60, 0xBA, 0x48, 0x48, 0x99, 0xEB, 0x71],
-            [0x3F, 0x94, 0xB8, 0xB8, 0xB5, 0x5E, 0x1B, 0x35],
+            [0x65, 0xFD, 0x86, 0x1A, 0xE7, 0x44, 0x89, 0xC0],
+            [0x00, 0xE4, 0x56, 0x87, 0x9A, 0xB9, 0x3E, 0x76],
             [
-                0x3E, 0x24, 0xA1, 0x09, 0x46, 0x63, 0x5B, 0x5E, 0x36, 0x09, 0x27, 0x88, 0xE1, 0x37, 0xC5, 0xB8
+                0xFB, 0x4B, 0x19, 0xE9, 0xF8, 0xD4, 0xB1, 0x50, 0x35, 0x76, 0xCE, 0x9B, 0xD8, 0x79, 0x9C, 0xD3
             ],
             get_random_u32,
         );
@@ -276,6 +277,10 @@ const APP: () = {
 
                 }
                 LorawanResponse::DownlinkReceived(fcnt_down) => {
+                    ctx.resources.timer_context.lock(|context| {
+                        context.enable = false;
+                    });
+
                     if let Some(mut lorawan) = ctx.resources.lorawan.take() {
                         if let Some(downlink) = lorawan.take_data_downlink() {
                             let fhdr = downlink.fhdr();
@@ -297,9 +302,10 @@ const APP: () = {
                             let mut mac_commands_len = 0;
                             for mac_command in fopts {
                                 if mac_commands_len == 0 {
-                                    write!(debug, "\tFOpts: ").unwrap();
+                                    write!(debug, "\tFOpts: {:?}", mac_command).unwrap();
+                                } else {
+                                    write!(debug, ",{:?}", mac_command).unwrap();
                                 }
-                                write!(debug, ",{:?}", mac_command).unwrap();
                                 mac_commands_len += 1;
                             }
 
@@ -378,13 +384,13 @@ const APP: () = {
                 let data: [u8; 5] = [0xDE, 0xAD, 0xBE, 0xEF, fcnt_up as u8];
 
                 // requested confirmed packet every 4 packets
-                let confirmed = if fcnt_up % 4 == 0 {
-                    write!(debug, "Requesting Confirmed Uplink\r\n").unwrap();
-                    true
-                } else {
-                    write!(debug, "Requesting Unconfirmed Uplink\r\n").unwrap();
-                    true
-                };
+                let confirmed = true;// if fcnt_up % 4 == 0 {
+                //     write!(debug, "Requesting Confirmed Uplink\r\n").unwrap();
+                //     true
+                // } else {
+                //     write!(debug, "Requesting Unconfirmed Uplink\r\n").unwrap();
+                //     true
+                // };
                 let (new_state, response) = lorawan.send(&data, 1, confirmed);
                 ctx.spawn.lorawan_response(response).unwrap();
                 new_state
@@ -422,7 +428,6 @@ const APP: () = {
         // grab a lock on timer and start new
         if context.enable {
             count = context.count as u32;
-            context.enable = false;
         } else {
             context.target = 0xFFFF as u16;
             context.count = 0;
