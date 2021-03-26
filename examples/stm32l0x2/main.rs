@@ -348,7 +348,13 @@ const APP: () = {
                         context.enable = false;
                     });
                 }
-                LorawanResponse::NoUpdate => (),
+                LorawanResponse::NoUpdate => {
+                    // ctx.resources.timer_context.lock(|context| {
+                    //     context.enable = true;
+                    //     context.armed = true;
+                    // });
+                    write!(debug, "NoUpdate").unwrap();
+                },
                 LorawanResponse::UplinkSending(fcnt_up) => {
                     write!(debug, "Uplink with FCnt {}\r\n", fcnt_up).unwrap();
                 }
