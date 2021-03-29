@@ -180,8 +180,8 @@ where
 
     pub fn set_tx(&mut self) {
         self.rx.set_low().unwrap_or(());
-        self.tx_rfo.set_high().unwrap_or(());
-        self.tx_boost.set_low().unwrap_or(());
+        self.tx_rfo.set_low().unwrap_or(());
+        self.tx_boost.set_high().unwrap_or(());
     }
 
     pub fn set_rx(&mut self) {

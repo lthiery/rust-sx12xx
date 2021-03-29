@@ -226,9 +226,9 @@ use lorawan_device::radio::{Bandwidth, CodingRate, SpreadingFactor};
 impl Into<super::LoRaBandwidth> for Bandwidth {
     fn into(self: Bandwidth) -> super::LoRaBandwidth {
         match self {
-            Bandwidth::_125KHZ => super::LoRaBandwidth::_125KHZ,
-            Bandwidth::_250KHZ => super::LoRaBandwidth::_250KHZ,
-            Bandwidth::_500KHZ => super::LoRaBandwidth::_500KHZ,
+            Bandwidth::_125KHz => super::LoRaBandwidth::_125KHZ,
+            Bandwidth::_250KHz => super::LoRaBandwidth::_250KHZ,
+            Bandwidth::_500KHz => super::LoRaBandwidth::_500KHZ,
         }
     }
 }

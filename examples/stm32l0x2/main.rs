@@ -11,7 +11,7 @@ use core::fmt::Write;
 use lorawan_crypto::LorawanCrypto as Crypto;
 use lorawan_device::{
     radio, Device as LorawanDevice, Error as LorawanError, Event as LorawanEvent,
-    Response as LorawanResponse, region, region::RegionHandler
+    Response as LorawanResponse, region
 };
 use rtic::app;
 use stm32l0xx_hal::{
@@ -147,10 +147,8 @@ const APP: () = {
         let mut sx12xx = Sx12xx::new(sx12xx::Radio::sx1276(), bindings);
         sx12xx.set_public_network(true);
 
-        let mut region = region::US915::default();
-        region.set_subband(2);
         let lorawan = LorawanDevice::new(
-            region.into(),
+            region::US915::subband(2).into(),
             LorawanRadio::new(sx12xx),
             [0x65, 0xFD, 0x86, 0x1A, 0xE7, 0x44, 0x89, 0xC0],
             [0x00, 0xE4, 0x56, 0x87, 0x9A, 0xB9, 0x3E, 0x76],
