@@ -7,4 +7,8 @@ target/
 build-script-target
 sx12xx-sys/sx12xx/build
 .idea/
-
+sx12xx-sys/sx12xx/CMakeCache.txt
+sx12xx-sys/sx12xx/CMakeFiles
+sx12xx-sys/sx12xx/Makefile
+sx12xx-sys/sx12xx/cmake_install.cmake
+sx12xx-sys/sx12xx/libsx12xx.a
