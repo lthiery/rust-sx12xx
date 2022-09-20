@@ -13,18 +13,18 @@ readme = "README.md"
 description = "Rust Wrapper SX12xx"
 
 [dependencies]
-sx12xx-sys = {path = "./sx12xx-sys", version = "0.1.0"}
-libm = "0.1.4"
-heapless = "0.5.4"
-as-slice = "*"
+sx12xx-sys = { path = "./sx12xx-sys" }
+libm = "0"
+heapless = "0"
+as-slice = "0"
 [dependencies.lorawan-device]
-git = "https://github.com/helium/rust-lorawan.git"
+git = "https://github.com/ivajloip/rust-lorawan.git"
 default-features = false
-branch = "lthiery/selectable-device-regions"
+branch = "master"
 
 [dependencies.lorawan-crypto]
 git = "https://github.com/lthiery/rust-lorawan-crypto.git"
-branch = "lthiery/new-deps"
+branch = "lthiery/updates"
 
 [profile.dev]
 opt-level = "s"
@@ -36,28 +36,28 @@ lto           = true
 opt-level     = "s"
 
 [dev-dependencies]
-cortex-m = {version = "0.6.0", features = ["const-fn"] }
-cortex-m-rt = "0.6.7"
-cortex-m-semihosting = "0.3.2"
-cortex-m-rtic = "0.5.3"
-void = { version = "1.0.2", default-features = false }
-cast = { version = "0.2.2", default-features = false }
-panic-ramdump = "0.1.1"
-embedded-hal = { version = "0.2.3", features = ["unproven"] }
-nb = "0.1.2"
+cortex-m = {version = "0", features = ["const-fn"] }
+cortex-m-rt = "0"
+cortex-m-semihosting = "0"
+cortex-m-rtic = "0"
+void = { version = "1", default-features = false }
+cast = { version = "0", default-features = false }
+panic-ramdump = "0"
+embedded-hal = { version = "0", features = ["unproven"] }
+nb = "1"
 
 [dev-dependencies.lorawan-device ]
-git = "https://github.com/helium/rust-lorawan.git"
+git = "https://github.com/ivajloip/rust-lorawan.git"
 default-features = false
-branch = "lthiery/selectable-device-regions"
+branch = "master"
 
-[dev-dependencies.lorawan-encoding ]
-git = "https://github.com/helium/rust-lorawan.git"
+[dev-dependencies.lorawan ]
+git = "https://github.com/ivajloip/rust-lorawan.git"
 default-features = false
-branch = "lthiery/selectable-device-regions"
+branch = "master"
 
 [dev-dependencies.stm32l0xx-hal]
 git                    = "https://github.com/stm32-rs/stm32l0xx-hal.git"
 features               = ["stm32l0x2","rt", "io-STM32L071"]
-version                = "0.7"
+version                = "0"
 
