@@ -1,4 +1,4 @@
-#[cfg(workaround_build)]
+//#[cfg(workaround_build)]
 fn main() {
     use std::env;
     use std::path::PathBuf;
@@ -31,25 +31,25 @@ fn main() {
        .clang_arg(format!("-I{}/include",dst.display()))
        .trust_clang_mangling(false)
        .rustfmt_bindings(true)
-       .whitelist_type("Radio_t")
-       .whitelist_type("Sx12xxEvent_t")
-       .whitelist_type("Sx12xxState_t")
-       .whitelist_type("AntPinsMode_t")
-       .whitelist_type("RadioModems_t")
-       .whitelist_type("Sx12xx_t")
-       .whitelist_type("Sx12xxRxMetadata_t")
+       .allowlist_type("Radio_t")
+       .allowlist_type("Sx12xxEvent_t")
+       .allowlist_type("Sx12xxState_t")
+       .allowlist_type("AntPinsMode_t")
+       .allowlist_type("RadioModems_t")
+       .allowlist_type("Sx12xx_t")
+       .allowlist_type("Sx12xxRxMetadata_t")
        .rustified_enum("Sx12xxEvent_t")
        .rustified_enum("Sx12xxState_t")
        .rustified_enum("AntPinsMode_t")
-       .whitelist_function("SX1276RadioNew")
-       .whitelist_function("SX126xRadioNew")
-       .whitelist_function("sx12xx_init")
-       .whitelist_function("sx12xx_new_handle")
-       .whitelist_function("sx12xx_handle_event")
-       .whitelist_function("sx12xx_send")
-       .whitelist_function("sx12xx_set_rx_buffer")
-       .whitelist_function("sx12xx_get_rx_metadata")
-       .whitelist_function("sx12xx_get_raw_buffer")
+       .allowlist_function("SX1276RadioNew")
+       .allowlist_function("SX126xRadioNew")
+       .allowlist_function("sx12xx_init")
+       .allowlist_function("sx12xx_new_handle")
+       .allowlist_function("sx12xx_handle_event")
+       .allowlist_function("sx12xx_send")
+       .allowlist_function("sx12xx_set_rx_buffer")
+       .allowlist_function("sx12xx_get_rx_metadata")
+       .allowlist_function("sx12xx_get_raw_buffer")
        .derive_copy(false)
        .derive_debug(false)
        .layout_tests(false)
@@ -62,8 +62,8 @@ fn main() {
         .expect("Couldn't write bindings!");
 }
 
-#[cfg(not(workaround_build))]
-fn main() {
-  cargo_5730::run_build_script();
-}
+// #[cfg(not(workaround_build))]
+// fn main() {
+//   cargo_5730::run_build_script();
+// }
 

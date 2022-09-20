@@ -14,6 +14,8 @@ use core::convert::From;
 pub struct LorawanRadio {
     sx12xx: Sx12xx,
     radio_state: State,
+    rx_window_offset_ms: i32,
+    rx_window_duration_ms: u32,
 }
 
 use core::default::Default;
@@ -23,7 +25,17 @@ impl LorawanRadio {
         Self {
             sx12xx,
             radio_state: State::Idle(Idle::default()),
+            rx_window_offset_ms: -500,
+            rx_window_duration_ms: 800,
         }
+    }
+
+    pub fn set_rx_window_offset_ms(&mut self, rx_window_offset_ms: i32)  {
+        self.rx_window_offset_ms = rx_window_offset_ms;
+    }
+
+    pub fn set_rx_window_duration_ms(&mut self, rx_window_duration_ms: u32)  {
+        self.rx_window_duration_ms = rx_window_duration_ms;
     }
 
     pub fn get_sx12xx(&mut self) -> &mut Sx12xx {
@@ -202,10 +214,10 @@ impl lorawan_device::radio::PhyRxTx for LorawanRadio {
 
 impl lorawan_device::Timings for LorawanRadio {
     fn get_rx_window_offset_ms(&self) -> i32 {
-        -500
+        self.rx_window_offset_ms
     }
     fn get_rx_window_duration_ms(&self) -> u32 {
-        800
+        self.rx_window_duration_ms
     }
 }
 
@@ -214,9 +226,9 @@ use lorawan_device::radio::{Bandwidth, CodingRate, SpreadingFactor};
 impl Into<super::LoRaBandwidth> for Bandwidth {
     fn into(self: Bandwidth) -> super::LoRaBandwidth {
         match self {
-            Bandwidth::_125KHZ => super::LoRaBandwidth::_125KHZ,
-            Bandwidth::_250KHZ => super::LoRaBandwidth::_250KHZ,
-            Bandwidth::_500KHZ => super::LoRaBandwidth::_500KHZ,
+            Bandwidth::_125KHz => super::LoRaBandwidth::_125KHZ,
+            Bandwidth::_250KHz => super::LoRaBandwidth::_250KHZ,
+            Bandwidth::_500KHz => super::LoRaBandwidth::_500KHZ,
         }
     }
 }

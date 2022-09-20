@@ -1,3 +1,4 @@
+project(sx12xx)
 cmake_minimum_required(VERSION 3.10)
 
 add_library(sx12xx STATIC
